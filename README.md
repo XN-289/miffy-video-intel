@@ -19,7 +19,7 @@ The package does not contain a Xiaohongshu, Douyin, or Channels scraper. It does
 Windows PowerShell:
 
 ```powershell
-git clone https://github.com/<your-org>/miffy-video-intel.git
+git clone https://github.com/XN-289/miffy-video-intel.git
 cd miffy-video-intel
 .\install.ps1
 ```
@@ -27,7 +27,7 @@ cd miffy-video-intel
 macOS, Linux, container, or clean VM:
 
 ```sh
-git clone https://github.com/<your-org>/miffy-video-intel.git
+git clone https://github.com/XN-289/miffy-video-intel.git
 cd miffy-video-intel
 sh install.sh
 ```
@@ -65,7 +65,7 @@ This package assumes the Agent may run in a disposable Linux VM rather than on t
 Minimal install:
 
 ```sh
-git clone https://github.com/<your-org>/miffy-video-intel.git
+git clone https://github.com/XN-289/miffy-video-intel.git
 cd miffy-video-intel
 MIFFY_SKIP_SKILL_INSTALL=1 sh install.sh
 export MIFFY_VIDEO_INTEL_HOME="$PWD"
