@@ -5,7 +5,7 @@ Current phase: release
 
 ## 一句话现状
 
-Miffy v0.6.0 已完成卡片式群入口的本地实现和自动化验证，等待推送后的 CI 与真实飞书群验收。
+Miffy v0.6.0 已完成卡片式群入口的本地验证和 GitHub CI 验证，等待真实飞书群验收。
 
 ## 已接受事实
 
@@ -35,6 +35,7 @@ Miffy v0.6.0 已完成卡片式群入口的本地实现和自动化验证，等�
 
 - v0.6.0 本地自动化验证 - Codex - `npm run check`、`npm test`（18/18）、`npm run validate:examples`、`npm run dry-run`、`npm audit --omit=dev` 全部通过；`git diff --check` 无输出。
 - v0.5.0 GitHub Actions - Codex - 提交 `5f9cd89` 的 Node 20 / 22 verify 均为 success。
+- v0.6.0 GitHub Actions - Codex - 提交 `4d7abed` 的 CI、Node 20 verify、Node 22 verify 均为 success。
 - 尚未做真实飞书群连接验收，不能声称机器人已在群里可用。
 
 ## 未决问题
