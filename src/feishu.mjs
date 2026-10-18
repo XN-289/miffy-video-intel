@@ -1,6 +1,7 @@
 import * as lark from "@larksuiteoapi/node-sdk";
 import fs from "node:fs";
 import path from "node:path";
+import { actionButton, buildInteractiveCard, cardToPlainText, markdownLink } from "./feishu-cards.mjs";
 
 const text = (value) => String(value || "");
 const EVIDENCE_IMAGE_LIMIT = 7;
@@ -489,21 +490,42 @@ export async function notifyGroup(client, chatId, record, result) {
   const status = record.collection?.access === "blocked" ? "受限待补充" : "分析完成";
   const action = result.action === "created" ? "已新建" : result.action === "updated" ? "已更新" : "预检完成";
   const failedAttachments = result.attachments?.failed || [];
-  const content = [
-    `Miffy 视频对标：${action}（${status}）`,
-    `标题：${record.video?.title || record.video?.url || "未提供"}`,
-    record.video?.url ? `视频：${record.video.url}` : "",
-    result.record_url ? `记录：${result.record_url}` : "",
-    result.attachments ? `关键帧：成功 ${result.attachments.uploaded?.length || 0} 张 / 失败 ${failedAttachments.length} 张` : "",
-    failedAttachments.length ? `附件问题：${failedAttachments[0].reason}` : "",
-  ].filter(Boolean).join("\n");
-  assertOk(
-    await client.im.message.create({
-      params: { receive_id_type: "chat_id" },
-      data: { receive_id: chatId, msg_type: "text", content: JSON.stringify({ text: content }) },
-    }),
-    "Send Feishu group notification"
-  );
+  const title = record.video?.title || record.video?.url || "未命名记录";
+  const card = buildInteractiveCard({
+    title: `Miffy · ${action} · ${status}`,
+    template: status === "受限待补充" ? "orange" : "green",
+    sections: [
+      `**${title}**`,
+      [
+        record.video?.url ? markdownLink("看原视频", record.video.url) : "",
+        result.record_url ? markdownLink("打开记录", result.record_url) : "",
+      ].filter(Boolean).join("  ·  "),
+      result.attachments ? `关键帧：成功 ${result.attachments.uploaded?.length || 0} 张 / 失败 ${failedAttachments.length} 张` : "",
+      failedAttachments.length ? `**附件问题**：${failedAttachments[0].reason}` : "",
+    ],
+    actions: [
+      ...(result.record_url ? [actionButton("打开记录", result.record_url, "primary")] : []),
+      ...(record.video?.url ? [actionButton("看原视频", record.video.url)] : []),
+    ],
+    note: "外部 Agent 产物会按同一个视频链接更新这条记录。",
+  });
+  try {
+    assertOk(
+      await client.im.message.create({
+        params: { receive_id_type: "chat_id" },
+        data: { receive_id: chatId, msg_type: "interactive", content: JSON.stringify(card) },
+      }),
+      "Send Feishu group card"
+    );
+  } catch {
+    assertOk(
+      await client.im.message.create({
+        params: { receive_id_type: "chat_id" },
+        data: { receive_id: chatId, msg_type: "text", content: JSON.stringify({ text: cardToPlainText(card) }) },
+      }),
+      "Send Feishu group notification"
+    );
+  }
   return true;
 }
 

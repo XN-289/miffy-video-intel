@@ -1,4 +1,5 @@
 import * as lark from "@larksuiteoapi/node-sdk";
+import { actionButton, buildInteractiveCard, cardToPlainText, markdownLink } from "./feishu-cards.mjs";
 import {
   bitableUrl,
   createClient,
@@ -69,6 +70,12 @@ function fieldText(value) {
   return String(value);
 }
 
+function fieldUrl(value) {
+  if (value === null || value === undefined) return "";
+  const url = typeof value === "object" ? String(value.link || "") : String(value);
+  return /^https?:\/\//.test(url) ? url : "";
+}
+
 function recordUpdatedTime(item) {
   const value = item.fields?.["更新时间"];
   const numeric = Number(typeof value === "object" ? value?.value : value);
@@ -78,6 +85,7 @@ function recordUpdatedTime(item) {
 
 function formatRecord(item, config) {
   const link = item.fields?.["视频链接"];
+  const videoUrl = fieldUrl(link);
   const title = fieldText(item.fields?.["标题"]) || fieldText(link) || "未命名记录";
   const status = fieldText(item.fields?.["采集状态"]) || "未知状态";
   const confidence = fieldText(item.fields?.["分析置信度"]);
@@ -85,10 +93,17 @@ function formatRecord(item, config) {
   const agent = fieldText(item.fields?.["采集Agent"]);
   const updated = recordUpdatedTime(item);
   return [
-    `${title}（${status}${confidence ? ` / 置信${confidence}` : ""}${score ? ` / 综合${score}` : ""}）`,
-    `记录：${resolveRecordUrl(config, item.record_id)}`,
-    fieldText(link) ? `视频：${fieldText(link)}` : "",
-    agent ? `Agent：${agent}` : "",
+    `**${title}**`,
+    [
+      status,
+      confidence ? `置信 ${confidence}` : "",
+      score ? `综合 ${score}` : "",
+      agent ? `Agent ${agent}` : "",
+    ].filter(Boolean).join(" · "),
+    [
+      markdownLink("打开记录", resolveRecordUrl(config, item.record_id)),
+      videoUrl ? markdownLink("看原视频", videoUrl) : "",
+    ].filter(Boolean).join("  ·  "),
     updated ? `更新：${new Date(updated).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}` : "",
   ].filter(Boolean).join("\n");
 }
@@ -110,6 +125,18 @@ function helpText() {
   ].join("\n");
 }
 
+function helpCard() {
+  return buildInteractiveCard({
+    title: "Miffy · 使用入口",
+    sections: [
+      "**最常用**\n直接 @Miffy 并发送视频链接：新链接会先进入「受限待补充」队列，不会生成猜测分析。",
+      "**查看工作台**\n看板：打开多维表格\n最新：最近 5 条记录\n待补充：当前证据不足的队列\n状态：总量和待补数量",
+      "**查重与外部分析**\n查 <视频链接>：按规范化链接查重\n分析 <视频链接>：生成给 Muse / Codex / Claude 的任务提示词",
+    ],
+    note: "Miffy 不绕过平台风控；完整视频理解交给外部 Agent，结果回到同一条记录。",
+  });
+}
+
 function analysisPrompt(url) {
   return [
     "请使用 miffy-video-intel 分析这条电商带货视频：",
@@ -124,6 +151,45 @@ function analysisPrompt(url) {
     "6. 先运行 upsert --dry-run；只有用户明确授权后才真实写入飞书。",
     "7. 返回记录链接、三个最值得对标的具体动作和一条可拍脚本。",
   ].join("\n");
+}
+
+function recordsCard({ title, items, emptyText, config, template = "blue" }) {
+  return buildInteractiveCard({
+    title,
+    template,
+    sections: items.length ? items.map((item) => formatRecord(item, config)) : [emptyText],
+    actions: items.length ? [actionButton("打开工作台", bitableUrl(config), "primary")] : [],
+    note: items.length ? "点击记录里的链接可以直接进入对应视频或表格记录。" : "新链接会先进入待补充队列。",
+  });
+}
+
+function singleRecordCard({ title, item, config, note, template = "blue" }) {
+  const videoUrl = fieldUrl(item.fields?.["视频链接"]);
+  return buildInteractiveCard({
+    title,
+    template,
+    sections: [formatRecord(item, config)],
+    actions: [
+      actionButton("打开记录", resolveRecordUrl(config, item.record_id), "primary"),
+      actionButton("看原视频", videoUrl),
+    ].filter((action) => action.url),
+    note,
+  });
+}
+
+function friendlyError(error) {
+  const value = String(error?.message || error || "");
+  const normalized = value.toLowerCase();
+  if (normalized.includes("permission") || normalized.includes("forbidden") || normalized.includes("权限")) {
+    return "飞书权限不足：请检查应用的多维表格和消息权限，发布新版本后重试。";
+  }
+  if (normalized.includes("app_token") || normalized.includes("table_id") || normalized.includes("not exist")) {
+    return "找不到指定多维表格：请检查 Base ID、Table ID，并确认已把应用添加到这个表格。";
+  }
+  if (normalized.includes("app_id") || normalized.includes("app_secret") || normalized.includes("token")) {
+    return "应用凭证无效：请检查本机 .env 里的 FEISHU_APP_ID 和 FEISHU_APP_SECRET。";
+  }
+  return value || "未知错误";
 }
 
 export function buildIntakeRecord(url, config = {}) {
@@ -164,6 +230,21 @@ async function sendText(client, chatId, replyText) {
   });
 }
 
+async function sendReply(client, chatId, reply) {
+  if (reply?.card) {
+    try {
+      await client.im.message.create({
+        params: { receive_id_type: "chat_id" },
+        data: { receive_id: chatId, msg_type: "interactive", content: JSON.stringify(reply.card) },
+      });
+    } catch {
+      await sendText(client, chatId, cardToPlainText(reply.card));
+    }
+    return;
+  }
+  await sendText(client, chatId, reply.text || "");
+}
+
 export async function handleGatewayMessage(event, { client, config }) {
   const incoming = parseGatewayEvent(event, config.botName);
   if (!incoming) return false;
@@ -171,60 +252,133 @@ export async function handleGatewayMessage(event, { client, config }) {
   const parts = incoming.text.split(/\s+/);
   const command = normalizeName(parts[0]);
   const argument = parts.slice(1).join(" ");
-  let reply = "";
+  let reply;
 
   try {
     if (["帮助", "help", "指令", "commands"].includes(command)) {
-      reply = helpText();
+      reply = { card: helpCard() };
     } else if (["看板", "工作台", "dashboard", "base"].includes(command)) {
-      reply = `Miffy 对标工作台：\n${bitableUrl(config)}`;
+      reply = {
+        card: buildInteractiveCard({
+          title: "Miffy · 对标工作台",
+          sections: ["所有视频记录、待补队列和分析结论都沉淀在同一个多维表格。"],
+          actions: [actionButton("打开工作台", bitableUrl(config), "primary")],
+          note: "群里可以直接丢视频链接，外部 Agent 分析后会更新同一条记录。",
+        }),
+      };
     } else if (["最新", "latest"].includes(command)) {
       const items = (await searchRecordSummaries(client, config))
         .sort((a, b) => recordUpdatedTime(b) - recordUpdatedTime(a))
         .slice(0, 5);
-      reply = items.length ? `最近 ${items.length} 条：\n\n${items.map((item) => formatRecord(item, config)).join("\n\n")}` : "表格还没有记录。发 @Miffy <视频链接> 会先创建待处理任务。";
+      reply = {
+        card: recordsCard({
+          title: `Miffy · 最新 ${items.length} 条`,
+          items,
+          emptyText: "表格还没有记录。发送 @Miffy <视频链接> 会先创建待处理任务。",
+          config,
+        }),
+      };
     } else if (["待补充", "blocked"].includes(command)) {
       const items = (await searchRecordSummaries(client, config))
         .filter((item) => fieldText(item.fields?.["采集状态"]) === "受限待补充")
         .sort((a, b) => recordUpdatedTime(b) - recordUpdatedTime(a))
         .slice(0, 10);
-      reply = items.length ? `待补充 ${items.length} 条（最多显示 10 条）：\n\n${items.map((item) => formatRecord(item, config)).join("\n\n")}` : "没有受限待补充记录。";
+      reply = {
+        card: recordsCard({
+          title: `Miffy · 待补充 ${items.length} 条`,
+          items,
+          emptyText: "当前没有受限待补充记录。",
+          config,
+          template: items.length ? "orange" : "green",
+        }),
+      };
     } else if (["状态", "status"].includes(command)) {
       const items = await searchRecordSummaries(client, config);
       const blocked = items.filter((item) => fieldText(item.fields?.["采集状态"]) === "受限待补充").length;
-      reply = `当前共 ${items.length} 条对标记录，其中 ${blocked} 条待补充。\n看板：${bitableUrl(config)}`;
+      reply = {
+        card: buildInteractiveCard({
+          title: "Miffy · 工作台状态",
+          template: blocked ? "orange" : "green",
+          sections: [
+            `**总量**：${items.length} 条对标记录`,
+            `**待补充**：${blocked} 条`,
+            blocked ? "有待补记录时，优先把「分析」提示词交给外部 Agent 处理。" : "当前队列没有积压。",
+          ],
+          actions: [actionButton("打开工作台", bitableUrl(config), "primary")],
+        }),
+      };
     } else if (["查", "find", "查询"].includes(command)) {
       const url = firstUrl(argument);
       if (!url) throw new Error("请在“查”后面提供 http/https 视频链接。");
       const item = await findRecord(client, config, url);
-      reply = item ? `已找到同链接记录：\n\n${formatRecord(item, config)}` : `没有找到这条链接。发 @Miffy ${url} 可以先建待处理任务。`;
+      reply = item
+        ? { card: singleRecordCard({ title: "Miffy · 已找到同链接记录", item, config, note: "同一条链接不会重复建记录。" }) }
+        : {
+            card: buildInteractiveCard({
+              title: "Miffy · 未找到这条链接",
+              sections: [`这条链接还没有入库。发送：\n@Miffy ${url}`],
+              note: "新链接会先创建受限待补充任务。",
+            }),
+          };
     } else if (["分析", "agent", "任务"].includes(command)) {
       const url = firstUrl(argument);
       if (!url) throw new Error("请在“分析”后面提供 http/https 视频链接。");
-      reply = analysisPrompt(url);
+      reply = { text: analysisPrompt(url) };
     } else if (firstUrl(incoming.text)) {
       const url = firstUrl(incoming.text);
       const existing = await findRecord(client, config, url);
       if (existing) {
-        reply = `这条链接已在工作台，不重复新建：\n\n${formatRecord(existing, config)}`;
+        reply = { card: singleRecordCard({ title: "Miffy · 链接已存在", item: existing, config, note: "没有重复新建；外部 Agent 分析后会更新这条记录。" }) };
       } else {
         const result = await upsertRecord(client, config, buildIntakeRecord(url, config));
-        reply = [
-          "已建立「受限待补充」任务。Miffy 不会猜测视频内容。",
-          `记录：${result.record_url}`,
-          `视频：${url}`,
-          "",
-          "下一步：把“分析”提示词发给 Muse / Codex / Claude；Agent 分析后会按同一个规范化链接更新这条记录。",
-        ].join("\n");
+        reply = {
+          card: buildInteractiveCard({
+            title: "Miffy · 已加入待补充队列",
+            template: "orange",
+            sections: [
+              "这条链接已登记。Miffy 只做入口和看板，不会猜测视频内容。",
+              [
+                markdownLink("打开记录", result.record_url),
+                markdownLink("看原视频", url),
+              ].join("  ·  "),
+              "**下一步**\n1. 复制任务指令：`@Miffy 分析 " + url + "`\n2. 发给 Muse / Codex / Claude\n3. Agent 先 validate，再 dry-run\n4. 用户确认后真实写入，同链接记录自动更新",
+            ],
+            actions: [
+              actionButton("打开记录", result.record_url, "primary"),
+              actionButton("看原视频", url),
+            ].filter((action) => action.url),
+            note: "不要把 App Secret 或 .env 内容发给任何 Agent。",
+          }),
+        };
       }
     } else {
-      reply = `我不理解这条指令。\n\n${helpText()}`;
+      reply = {
+        card: buildInteractiveCard({
+          title: "Miffy · 我没听懂",
+          template: "orange",
+          sections: [
+            "你可以直接发送一个视频链接，我会先建待补充任务。",
+            "**也可以试试**\n帮助\n最新\n待补充\n状态",
+          ],
+          note: "发送“帮助”可以看到全部命令。",
+        }),
+      };
     }
   } catch (error) {
-    reply = `Miffy 处理失败：${error?.message || error}\n\n可以先回复“帮助”查看可用命令。`;
+    reply = {
+      card: buildInteractiveCard({
+        title: "Miffy · 处理失败",
+        template: "red",
+        sections: [
+          friendlyError(error),
+          "发送“帮助”查看命令；如果提示权限不足，需要到飞书开放平台调整权限并发布新版本。",
+        ],
+        note: "这次操作没有完成；请根据上面的原因处理后重试。",
+      }),
+    };
   }
 
-  await sendText(client, incoming.chatId, reply);
+  await sendReply(client, incoming.chatId, reply);
   return true;
 }
 

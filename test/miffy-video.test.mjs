@@ -275,12 +275,16 @@ test("record links and group notifications are actionable", async () => {
 
   assert.equal(result.record_url, "https://www.feishu.cn/base/base_1?table=table_1&record=rec_missing_url");
   assert.equal(await notifyGroup(client, "chat_1", record, result), true);
-  const content = JSON.parse(messages[0].data.content).text;
-  assert.match(content, /已更新（分析完成）/);
-  assert.match(content, /视频：https:\/\/www\.example\.com\/video/);
-  assert.match(content, /record=rec_missing_url/);
-  assert.match(content, /成功 1 张 \/ 失败 1 张/);
-  assert.match(content, /上传、下载云文档素材/);
+  assert.equal(messages[0].data.msg_type, "interactive");
+  const card = JSON.parse(messages[0].data.content);
+  assert.equal(card.header.title.content, "Miffy · 已更新 · 分析完成");
+  const markdown = card.elements.filter((element) => element.tag === "div").map((element) => element.text.content).join("\n");
+  assert.match(markdown, /\[看原视频\]\(https:\/\/www\.example\.com\/video\)/);
+  assert.match(markdown, /\[打开记录\]\(https:\/\/www\.feishu\.cn\/base\/base_1\?table=table_1&record=rec_missing_url\)/);
+  assert.match(markdown, /成功 1 张 \/ 失败 1 张/);
+  assert.match(markdown, /上传、下载云文档素材/);
+  const actions = card.elements.find((element) => element.tag === "action")?.actions || [];
+  assert.equal(actions[0].url, result.record_url);
 });
 
 function gatewayEvent(text, { mentions = [] } = {}) {
@@ -296,6 +300,31 @@ function gatewayEvent(text, { mentions = [] } = {}) {
     },
   };
 }
+
+test("gateway command cards fall back to text with links", async () => {
+  const messages = [];
+  const client = {
+    im: {
+      message: {
+        create: async (payload) => {
+          if (payload.data.msg_type === "interactive") throw new Error("Card rejected");
+          messages.push(payload);
+          return { code: 0 };
+        },
+      },
+    },
+  };
+  const event = gatewayEvent("@_user_1 看板", {
+    mentions: [{ key: "@_user_1", name: "Miffy" }],
+  });
+
+  assert.equal(await handleGatewayMessage(event, { client, config: { baseId: "base_1", tableId: "table_1", botName: "Miffy" } }), true);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].data.msg_type, "text");
+  const text = JSON.parse(messages[0].data.content).text;
+  assert.match(text, /Miffy · 对标工作台/);
+  assert.match(text, /打开工作台：https:\/\/www\.feishu\.cn\/base\/base_1\?table=table_1/);
+});
 
 test("gateway parses mentions and answers an existing link lookup", async () => {
   const messages = [];
@@ -342,9 +371,15 @@ test("gateway parses mentions and answers an existing link lookup", async () => 
   assert.equal(parsed.text, "查 https://www.example.com/video?xsec_token=secret");
   assert.equal(await handleGatewayMessage(event, { client, config: { baseId: "base_1", tableId: "table_1", botName: "Miffy" } }), true);
   assert.deepEqual(searches[0].data, {});
-  const reply = JSON.parse(messages[0].data.content).text;
-  assert.match(reply, /已找到同链接记录/);
-  assert.match(reply, /记录：https:\/\/www\.feishu\.cn\/base\/base_1\?table=table_1&record=rec_1/);
+  assert.equal(messages[0].data.msg_type, "interactive");
+  const card = JSON.parse(messages[0].data.content);
+  assert.equal(card.header.title.content, "Miffy · 已找到同链接记录");
+  const markdown = card.elements.filter((element) => element.tag === "div").map((element) => element.text.content).join("\n");
+  assert.match(markdown, /Agent可见/);
+  assert.match(markdown, /\[打开记录\]\(https:\/\/www\.feishu\.cn\/base\/base_1\?table=table_1&record=rec_1\)/);
+  assert.match(markdown, /\[看原视频\]\(https:\/\/www\.example\.com\/video\)/);
+  const actions = card.elements.find((element) => element.tag === "action")?.actions || [];
+  assert.equal(actions[1]?.url, "https://www.example.com/video");
 });
 
 test("gateway creates one blocked intake task for a new link", async () => {
@@ -387,10 +422,16 @@ test("gateway creates one blocked intake task for a new link", async () => {
   assert.equal(created.length, 1);
   assert.equal(created[0].data.fields["视频链接"].link, "https://www.xiaohongshu.com/explore/abc?xsec_token=secret");
   assert.equal(created[0].data.fields["采集状态"], "受限待补充");
-  const reply = JSON.parse(messages[0].data.content).text;
-  assert.match(reply, /已建立「受限待补充」任务/);
-  assert.match(reply, /record=rec_new/);
-  assert.match(reply, /Muse \/ Codex \/ Claude/);
+  assert.equal(messages[0].data.msg_type, "interactive");
+  const card = JSON.parse(messages[0].data.content);
+  assert.equal(card.header.title.content, "Miffy · 已加入待补充队列");
+  const markdown = card.elements.filter((element) => element.tag === "div").map((element) => element.text.content).join("\n");
+  assert.match(markdown, /不会猜测视频内容/);
+  assert.match(markdown, /record=rec_new/);
+  assert.match(markdown, /@Miffy 分析 https:\/\/www\.xiaohongshu\.com\/explore\/abc\?xsec_token=secret/);
+  assert.match(markdown, /Muse \/ Codex \/ Claude/);
+  const actions = card.elements.find((element) => element.tag === "action")?.actions || [];
+  assert.equal(actions[0].url, "https://www.feishu.cn/base/base_1?table=table_1&record=rec_new");
 });
 
 test("CLI dry-run does not require Feishu credentials", async () => {

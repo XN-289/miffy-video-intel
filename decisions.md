@@ -11,3 +11,7 @@ Every created or updated group notification includes the action, status, title o
 ## 2026-10-18 - New group links enter the blocked queue
 
 A new link mentioned in the group creates one schema-valid blocked record. The same normalized URL is reused later when an external Agent supplies a complete or blocked analysis, instead of creating duplicate records.
+
+## 2026-10-18 - Group responses are card-first
+
+Miffy command responses and upsert notifications use Feishu interactive cards with status titles, separated record sections, direct action buttons, and a next-action block. The external-Agent task prompt remains plain text for copyability. If a card is rejected, Miffy retries once with a concise text message containing the same links.

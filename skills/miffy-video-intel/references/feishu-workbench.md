@@ -37,3 +37,6 @@ Miffy's group role is entry, dedupe, queueing, and navigation. Use `npm run gate
 - `<video-url>`: create a blocked intake record or return the existing record
 
 A new URL is not treated as analysis. It only becomes a `受限待补充` task until an external Agent supplies schema-valid evidence and updates the same canonical URL.
+
+Responses are card-first for readability: status in the card title, record facts in separate sections, and direct buttons for the record, original video, and workbench. The `分析` response remains plain text so it can be copied to another Agent. Errors should point to the shortest recovery path (permissions, Base/Table IDs, or local credentials) instead of exposing a raw stack trace.
+If an interactive card is rejected, the gateway retries once with concise text that preserves the same links and next action.

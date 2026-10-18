@@ -197,6 +197,16 @@ In a group, Miffy only responds when mentioned. In a direct chat, every text mes
 
 The gateway response and post-upsert notification include the video URL and a direct Bitable record link. If Feishu does not return `record_url`, the CLI constructs `...?table=<table_id>&record=<record_id>` from the configured Base. Put the canonical Base URL in `FEISHU_BASE_URL` when your tenant uses a specific Feishu domain and you want links to preserve it.
 
+Group UX is card-first. Command results and upsert notifications use Feishu interactive cards with:
+
+- A short status title, such as `已加入待补充队列`, `链接已存在`, or `处理失败`.
+- One section per record, showing title, collection state, confidence, score, agent, and update time.
+- Direct `打开记录`, `看原视频`, and `打开工作台` buttons where applicable.
+- A next-action block for new links: copy `@Miffy 分析 <video-url>`, send it to an external Agent, validate, dry-run, then request authorization for the real upsert.
+- Friendly recovery hints for permission, Base/Table, and credential errors.
+
+The `分析` command still returns plain text because its prompt is intended to be copied into another Agent. If Feishu rejects an interactive card, Miffy retries once with a concise text message containing the same links.
+
 ## Usage
 
 1. Send a video link to an Agent with the skill installed.
