@@ -1,6 +1,6 @@
 {
   "name": "miffy-video-intel",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Agent skill and Feishu CLI for e-commerce short-video benchmarking",
   "type": "module",
@@ -11,11 +11,12 @@
     "miffy-video": "./bin/miffy-video.mjs"
   },
   "scripts": {
-    "check": "node --check bin/miffy-video.mjs && node --check src/config.mjs && node --check src/validator.mjs && node --check src/feishu.mjs && node --check test/miffy-video.test.mjs",
+    "check": "node --check bin/miffy-video.mjs && node --check src/config.mjs && node --check src/validator.mjs && node --check src/feishu.mjs && node --check src/gateway.mjs && node --check test/miffy-video.test.mjs",
     "test": "node --test",
     "validate": "node bin/miffy-video.mjs validate",
     "upsert": "node bin/miffy-video.mjs upsert",
     "init": "node bin/miffy-video.mjs init",
+    "gateway": "node bin/miffy-video.mjs gateway",
     "doctor": "node bin/miffy-video.mjs doctor",
     "validate:examples": "node bin/miffy-video.mjs validate templates/video-analysis.example.json templates/blocked-video.example.json",
     "dry-run": "node bin/miffy-video.mjs upsert templates/video-analysis.example.json --dry-run"

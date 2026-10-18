@@ -22,3 +22,18 @@ Feishu free dashboards can add charts by grouping:
 - Keep blocked records until enough materials arrive.
 - If product category changes after more evidence, update platform/product fields rather than creating a second record.
 - `关键帧证据` is a replace-as-group attachment field: each real upsert writes the successful frame set for that run and does not append old attachments. Check the CLI result for failed frame uploads before treating the evidence set as complete.
+
+## Group gateway
+
+Miffy's group role is entry, dedupe, queueing, and navigation. Use `npm run gateway` and mention the bot in the group:
+
+- `帮助`: command list
+- `看板`: Bitable link
+- `最新`: latest five records
+- `待补充`: blocked evidence queue
+- `状态`: record counts
+- `查 <video-url>`: normalized URL lookup
+- `分析 <video-url>`: external-Agent bootstrap prompt
+- `<video-url>`: create a blocked intake record or return the existing record
+
+A new URL is not treated as analysis. It only becomes a `受限待补充` task until an external Agent supplies schema-valid evidence and updates the same canonical URL.

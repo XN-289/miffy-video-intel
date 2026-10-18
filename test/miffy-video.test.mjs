@@ -5,7 +5,15 @@ import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import { fieldDefinitions, normalizeUrl, recordToFields, upsertRecord } from "../src/feishu.mjs";
+import {
+  fieldDefinitions,
+  normalizeUrl,
+  notifyGroup,
+  recordToFields,
+  resolveRecordUrl,
+  upsertRecord,
+} from "../src/feishu.mjs";
+import { buildIntakeRecord, handleGatewayMessage, parseGatewayEvent } from "../src/gateway.mjs";
 import { validateRecord } from "../src/validator.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -240,6 +248,149 @@ test("blocked records remain explicit intake tasks", () => {
   assert.equal(fields["采集状态"], "受限待补充");
   assert.ok(fields["风险与待验证"].includes("视频截图或录屏"));
   assert.equal(fields["开头钩子"], "");
+});
+
+test("record links and group notifications are actionable", async () => {
+  const messages = [];
+  const client = {
+    im: {
+      message: {
+        create: async (payload) => {
+          messages.push(payload);
+          return { code: 0 };
+        },
+      },
+    },
+  };
+  const record = readJson("templates/video-analysis.example.json");
+  const result = {
+    action: "updated",
+    record_id: "rec_missing_url",
+    record_url: resolveRecordUrl({ baseId: "base_1", tableId: "table_1" }, "rec_missing_url", ""),
+    attachments: {
+      uploaded: [{ file_token: "token_1" }],
+      failed: [{ reason: "上传失败：请给飞书应用开通「上传、下载云文档素材」权限" }],
+    },
+  };
+
+  assert.equal(result.record_url, "https://www.feishu.cn/base/base_1?table=table_1&record=rec_missing_url");
+  assert.equal(await notifyGroup(client, "chat_1", record, result), true);
+  const content = JSON.parse(messages[0].data.content).text;
+  assert.match(content, /已更新（分析完成）/);
+  assert.match(content, /视频：https:\/\/www\.example\.com\/video/);
+  assert.match(content, /record=rec_missing_url/);
+  assert.match(content, /成功 1 张 \/ 失败 1 张/);
+  assert.match(content, /上传、下载云文档素材/);
+});
+
+function gatewayEvent(text, { mentions = [] } = {}) {
+  return {
+    sender: { sender_type: "user" },
+    message: {
+      message_id: "om_1",
+      chat_id: "chat_1",
+      chat_type: "group",
+      message_type: "text",
+      content: JSON.stringify({ text }),
+      mentions,
+    },
+  };
+}
+
+test("gateway parses mentions and answers an existing link lookup", async () => {
+  const messages = [];
+  const searches = [];
+  const client = {
+    bitable: {
+      appTableRecord: {
+        search: async (payload) => {
+          searches.push(payload);
+          return {
+            code: 0,
+            data: {
+              has_more: false,
+              items: [{
+                record_id: "rec_1",
+                fields: {
+                  视频链接: { text: "示例", link: "https://www.example.com/video" },
+                  标题: "示例记录",
+                  采集状态: "Agent可见",
+                  分析置信度: "高",
+                  综合潜力: 5,
+                  更新时间: 1792330979929,
+                  采集Agent: "Muse",
+                },
+              }],
+            },
+          };
+        },
+      },
+    },
+    im: {
+      message: {
+        create: async (payload) => {
+          messages.push(payload);
+          return { code: 0 };
+        },
+      },
+    },
+  };
+  const event = gatewayEvent("@_user_1 查 https://www.example.com/video?xsec_token=secret", {
+    mentions: [{ key: "@_user_1", name: "Miffy" }],
+  });
+  const parsed = parseGatewayEvent(event, "Miffy");
+  assert.equal(parsed.text, "查 https://www.example.com/video?xsec_token=secret");
+  assert.equal(await handleGatewayMessage(event, { client, config: { baseId: "base_1", tableId: "table_1", botName: "Miffy" } }), true);
+  assert.deepEqual(searches[0].data, {});
+  const reply = JSON.parse(messages[0].data.content).text;
+  assert.match(reply, /已找到同链接记录/);
+  assert.match(reply, /记录：https:\/\/www\.feishu\.cn\/base\/base_1\?table=table_1&record=rec_1/);
+});
+
+test("gateway creates one blocked intake task for a new link", async () => {
+  const messages = [];
+  const created = [];
+  const fieldNames = fieldDefinitions().map((field) => field.field_name);
+  const client = {
+    bitable: {
+      appTableField: {
+        list: async () => ({
+          code: 0,
+          data: { has_more: false, items: fieldNames.map((name) => ({ field_name: name })) },
+        }),
+      },
+      appTableRecord: {
+        search: async () => ({ code: 0, data: { has_more: false, items: [] } }),
+        create: async (payload) => {
+          created.push(payload);
+          return { code: 0, data: { record: { record_id: "rec_new" } } };
+        },
+      },
+    },
+    im: {
+      message: {
+        create: async (payload) => {
+          messages.push(payload);
+          return { code: 0 };
+        },
+      },
+    },
+  };
+  const intake = buildIntakeRecord("https://www.xiaohongshu.com/explore/abc?xsec_token=secret");
+  assert.equal(intake.video.platform, "xiaohongshu");
+  assert.equal(validateRecord(intake).valid, true);
+
+  const event = gatewayEvent("@_user_1 https://www.xiaohongshu.com/explore/abc?xsec_token=secret", {
+    mentions: [{ key: "@_user_1", name: "Miffy" }],
+  });
+  assert.equal(await handleGatewayMessage(event, { client, config: { baseId: "base_1", tableId: "table_1", botName: "Miffy" } }), true);
+  assert.equal(created.length, 1);
+  assert.equal(created[0].data.fields["视频链接"].link, "https://www.xiaohongshu.com/explore/abc?xsec_token=secret");
+  assert.equal(created[0].data.fields["采集状态"], "受限待补充");
+  const reply = JSON.parse(messages[0].data.content).text;
+  assert.match(reply, /已建立「受限待补充」任务/);
+  assert.match(reply, /record=rec_new/);
+  assert.match(reply, /Muse \/ Codex \/ Claude/);
 });
 
 test("CLI dry-run does not require Feishu credentials", async () => {

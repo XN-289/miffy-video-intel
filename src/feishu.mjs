@@ -12,11 +12,21 @@ function joinList(values) {
 }
 
 export function detectPlatformLabel(platform, url = "") {
+  const platformMap = {
+    xiaohongshu: "小红书",
+    douyin: "抖音",
+    channels: "视频号",
+    other: "其他",
+  };
+  return platformMap[detectPlatformKey(platform, url)] || "其他";
+}
+
+export function detectPlatformKey(platform, url = "") {
   const value = `${platform || ""} ${url}`.toLowerCase();
-  if (value.includes("xiaohongshu") || value.includes("xhslink")) return "小红书";
-  if (value.includes("douyin")) return "抖音";
-  if (value.includes("channels.weixin.qq.com")) return "视频号";
-  return "其他";
+  if (value.includes("xiaohongshu") || value.includes("xhslink")) return "xiaohongshu";
+  if (value.includes("douyin")) return "douyin";
+  if (value.includes("channels.weixin.qq.com")) return "channels";
+  return "other";
 }
 
 export function normalizeUrl(rawUrl) {
@@ -125,26 +135,51 @@ export async function ensureFields(client, config) {
   return { existing: [...existing], created };
 }
 
-export async function findRecordId(client, config, rawUrl) {
-  const target = normalizeUrl(rawUrl);
+export function bitableUrl(config, recordId = "") {
+  const fallback = new URL(`https://www.feishu.cn/base/${config.baseId}`);
+  const target = config.baseUrl && /^https?:\/\//.test(config.baseUrl) ? new URL(config.baseUrl) : fallback;
+  if (config.tableId) target.searchParams.set("table", config.tableId);
+  if (recordId) target.searchParams.set("record", recordId);
+  return target.toString();
+}
+
+export function resolveRecordUrl(config, recordId, preferredUrl = "") {
+  if (preferredUrl && /^https?:\/\//.test(preferredUrl) && preferredUrl !== config.baseId) return preferredUrl;
+  return bitableUrl(config, recordId);
+}
+
+export async function searchRecordSummaries(client, config) {
   let pageToken;
+  const items = [];
   do {
     const response = assertOk(
       await client.bitable.appTableRecord.search({
-        data: { field_names: ["视频链接"] },
+        // Old tables may not have every v0.5 summary field yet. Request the
+        // full record shape so navigation commands work before ensureFields.
+        data: {},
         params: { page_size: 500, page_token: pageToken },
         path: { app_token: config.baseId, table_id: config.tableId },
       }),
       "Search Bitable records"
     );
-    for (const item of response.data?.items || []) {
-      const link = item.fields?.["视频链接"];
-      const value = typeof link === "object" ? link?.link : link;
-      if (value && normalizeUrl(value) === target) return item.record_id;
-    }
+    items.push(...(response.data?.items || []));
     pageToken = response.data?.has_more ? response.data?.page_token : "";
   } while (pageToken);
-  return "";
+  return items;
+}
+
+export async function findRecord(client, config, rawUrl) {
+  const target = normalizeUrl(rawUrl);
+  const items = await searchRecordSummaries(client, config);
+  return items.find((item) => {
+    const link = item.fields?.["视频链接"];
+    const value = typeof link === "object" ? link?.link : link;
+    return value && normalizeUrl(value) === target;
+  });
+}
+
+export async function findRecordId(client, config, rawUrl) {
+  return (await findRecord(client, config, rawUrl))?.record_id || "";
 }
 
 export function recordToFields(record, config = {}) {
@@ -429,7 +464,7 @@ export async function upsertRecord(client, config, record, { dryRun = false, ass
     return {
       action: "updated",
       record_id: recordId,
-      record_url: updated.data?.record?.record_url || config.baseId,
+      record_url: resolveRecordUrl(config, recordId, updated.data?.record?.record_url),
       attachments,
     };
   }
@@ -444,7 +479,7 @@ export async function upsertRecord(client, config, record, { dryRun = false, ass
   return {
     action: "created",
     record_id: created.data?.record?.record_id,
-    record_url: created.data?.record?.record_url || config.baseId,
+    record_url: resolveRecordUrl(config, created.data?.record?.record_id, created.data?.record?.record_url),
     attachments,
   };
 }
@@ -452,10 +487,15 @@ export async function upsertRecord(client, config, record, { dryRun = false, ass
 export async function notifyGroup(client, chatId, record, result) {
   if (!chatId) return false;
   const status = record.collection?.access === "blocked" ? "受限待补充" : "分析完成";
+  const action = result.action === "created" ? "已新建" : result.action === "updated" ? "已更新" : "预检完成";
+  const failedAttachments = result.attachments?.failed || [];
   const content = [
-    `Miffy 视频对标：${status}`,
-    record.video?.title || record.video?.url,
+    `Miffy 视频对标：${action}（${status}）`,
+    `标题：${record.video?.title || record.video?.url || "未提供"}`,
+    record.video?.url ? `视频：${record.video.url}` : "",
     result.record_url ? `记录：${result.record_url}` : "",
+    result.attachments ? `关键帧：成功 ${result.attachments.uploaded?.length || 0} 张 / 失败 ${failedAttachments.length} 张` : "",
+    failedAttachments.length ? `附件问题：${failedAttachments[0].reason}` : "",
   ].filter(Boolean).join("\n");
   assertOk(
     await client.im.message.create({

@@ -152,6 +152,8 @@ FEISHU_APP_SECRET=app secret
 FEISHU_BASE_ID=Bitable app_token
 FEISHU_TABLE_ID=Bitable table_id
 FEISHU_CHAT_ID=optional chat_id for notifications
+FEISHU_BASE_URL=optional canonical Bitable URL used in group links
+MIFFY_BOT_NAME=optional bot mention name, default Miffy
 MIFFY_DEFAULT_AGENT=default collector name
 MIFFY_DEFAULT_MODEL=default model name
 ```
@@ -165,6 +167,35 @@ npm run init --
 Copy the returned `app_token` and `table_id` into the runtime secret store. To continue using an existing Bitable, configure its existing values.
 
 `关键帧证据` is a Bitable attachment field. `video.evidence_images` is optional and backward-compatible: legacy JSON remains valid. Each item uses a repository-relative `path`, `timestamp_seconds`, and evidence `label`. A real upsert uploads valid JPGs through Feishu's media API and writes their `file_token`s as one complete attachment group, so repeated updates replace rather than accumulate. `--dry-run` only lists the local files it would upload. A failed image upload is reported in `attachments.failed` and does not stop the text record from being created or updated.
+
+## Miffy group gateway
+
+Run the free long-connection gateway from a machine or VM:
+
+```sh
+npm run gateway
+```
+
+It keeps the bot as the workbench entry; it does not scrape or analyze platforms itself. Configure the Feishu app once:
+
+1. Enable the bot capability.
+2. Add the message permission used to receive messages and send as the bot.
+3. In event subscription, select long connection mode and subscribe to `im.message.receive_v1`.
+4. Add the bot to the target group.
+5. Publish a new app version.
+
+In a group, Miffy only responds when mentioned. In a direct chat, every text message is treated as a command. Supported commands:
+
+- `@Miffy 帮助`: show the command list.
+- `@Miffy 看板`: return the Bitable workbench link.
+- `@Miffy 最新`: return the latest five records with direct record links.
+- `@Miffy 待补充`: return the blocked-intake queue.
+- `@Miffy 状态`: summarize record and blocked counts.
+- `@Miffy 查 <video-url>`: find one record by normalized URL.
+- `@Miffy 分析 <video-url>`: return the standard external-Agent task prompt.
+- `@Miffy <video-url>`: create one `受限待补充` record for a new URL, or return the existing record.
+
+The gateway response and post-upsert notification include the video URL and a direct Bitable record link. If Feishu does not return `record_url`, the CLI constructs `...?table=<table_id>&record=<record_id>` from the configured Base. Put the canonical Base URL in `FEISHU_BASE_URL` when your tenant uses a specific Feishu domain and you want links to preserve it.
 
 ## Usage
 

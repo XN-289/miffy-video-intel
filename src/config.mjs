@@ -51,6 +51,8 @@ export function loadConfig({ requireFeishu = true } = {}) {
     baseId: value("FEISHU_BASE_ID"),
     tableId: value("FEISHU_TABLE_ID"),
     chatId: value("FEISHU_CHAT_ID"),
+    baseUrl: value("FEISHU_BASE_URL"),
+    botName: value("MIFFY_BOT_NAME") || "Miffy",
     defaultAgent: value("MIFFY_DEFAULT_AGENT") || "Agent",
     defaultModel: value("MIFFY_DEFAULT_MODEL") || "",
   };

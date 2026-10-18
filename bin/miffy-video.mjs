@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "../src/config.mjs";
 import { createClient, initWorkbench, notifyGroup, upsertRecord } from "../src/feishu.mjs";
+import { startGateway } from "../src/gateway.mjs";
 import { validateRecord } from "../src/validator.mjs";
 
 const USAGE = `miffy-video
@@ -13,6 +14,7 @@ Usage:
   miffy-video upsert <record.json>... [--dry-run]
   miffy-video init
   miffy-video doctor
+  miffy-video gateway
 
 Environment:
   Copy .env.example to .env, then fill Feishu values locally.
@@ -99,8 +101,17 @@ async function main() {
       feishu_base_id: Boolean(config.baseId),
       feishu_table_id: Boolean(config.tableId),
       feishu_chat_id: Boolean(config.chatId),
+      feishu_base_url: Boolean(config.baseUrl),
+      miffy_bot_name: config.botName,
       schemas: ["schemas/video-analysis.schema.json", "schemas/blocked-video.schema.json"],
     });
+    return;
+  }
+
+  if (command === "gateway") {
+    const config = loadConfig();
+    console.log(`Miffy gateway started as ${config.botName}. Press Ctrl+C to stop.`);
+    await startGateway(config);
     return;
   }
 
