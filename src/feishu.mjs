@@ -370,7 +370,8 @@ async function uploadEvidenceImages(client, config, planned) {
       const response = await client.drive.media.uploadAll({
         data: {
           file_name: image.file_name,
-          parent_type: "bitable_image",
+          // Bitable attachment fields consume file media even when the asset is a JPG.
+          parent_type: "bitable_file",
           parent_node: config.baseId,
           size: file.length,
           file,

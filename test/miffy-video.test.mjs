@@ -175,7 +175,7 @@ test("upsert uploads key frames and replaces the whole attachment set", async ()
     assert.deepEqual(updates[1].data.fields["关键帧证据"], [{ file_token: "token_3" }, { file_token: "token_4" }]);
     assert.equal(updates[1].data.fields["关键帧证据"].length, 2);
     for (const upload of uploads) {
-      assert.equal(upload.data.parent_type, "bitable_image");
+      assert.equal(upload.data.parent_type, "bitable_file");
       assert.equal(upload.data.parent_node, "base_1");
     }
   } finally {
