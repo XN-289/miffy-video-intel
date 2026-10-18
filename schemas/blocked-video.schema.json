@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://miffy.local/schemas/blocked-video.schema.json",
+  "title": "Miffy blocked video intake",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "video", "collection", "next_action"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "video": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "platform"],
+      "properties": {
+        "url": { "type": "string", "pattern": "^https?://" },
+        "platform": { "enum": ["xiaohongshu", "douyin", "channels", "other"] },
+        "title": { "type": "string" },
+        "author": { "type": "string" }
+      }
+    },
+    "collection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["access", "method", "evidence", "missing"],
+      "properties": {
+        "access": { "const": "blocked" },
+        "method": { "enum": ["agent_browser", "server_fetch", "user_browser", "unknown"] },
+        "collector_agent": { "type": "string" },
+        "model": { "type": "string" },
+        "collected_at": { "type": "string" },
+        "evidence": { "type": "array", "maxItems": 0 },
+        "missing": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "string", "minLength": 2 }
+        }
+      }
+    },
+    "next_action": { "const": "ask_user_for_materials" }
+  }
+}

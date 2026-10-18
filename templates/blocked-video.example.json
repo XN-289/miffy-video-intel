@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "video": {
+    "url": "https://www.example.com/blocked-video",
+    "platform": "xiaohongshu"
+  },
+  "collection": {
+    "access": "blocked",
+    "method": "agent_browser",
+    "collector_agent": "Muse",
+    "model": "example-model",
+    "collected_at": "2026-10-18T20:00:00+08:00",
+    "evidence": [],
+    "missing": ["视频截图或录屏", "口播稿或画面要点", "商品信息", "评论区反馈"]
+  },
+  "next_action": "ask_user_for_materials"
+}

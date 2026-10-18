@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "video": {
+    "url": "https://www.example.com/video",
+    "platform": "other",
+    "title": "示例：一条可复用的痛点场景带货视频",
+    "author": "示例作者",
+    "description": "示例简介：展示一个具体使用场景里的痛点和解法。",
+    "metrics": { "likes": 1200, "collects": 900, "comments": 35, "shares": 20 },
+    "metrics_text": "点赞 1200 / 收藏 900 / 评论 35 / 分享 20",
+    "product": {
+      "name": "示例商品",
+      "price_range": "39-59 元",
+      "selling_points": ["免安装", "小空间可用", "清洗方便"],
+      "purchase_path": "评论区置顶链接"
+    },
+    "comments": [
+      { "text": "这个真的能放进小浴室吗？", "likes": 88, "insight": "用户担心尺寸和场景适配" },
+      { "text": "求链接，正好租房用。", "likes": 42, "insight": "租房人群有明确购买意向" }
+    ],
+    "content": {
+      "transcript": "开头直接展示小浴室里的麻烦，然后对比安装前后的使用状态，最后解释商品如何解决收纳问题。",
+      "visual_notes": ["前 3 秒展示拥挤浴室", "中段对比安装前后", "结尾给收纳结果特写"]
+    }
+  },
+  "collection": {
+    "access": "partial",
+    "method": "mixed",
+    "collector_agent": "Muse",
+    "model": "example-model",
+    "collected_at": "2026-10-18T20:00:00+08:00",
+    "evidence": [
+      { "source": "transcript", "quote": "开头直接展示小浴室里的麻烦", "confidence": "high" },
+      { "source": "comments", "quote": "求链接，正好租房用。", "confidence": "high" }
+    ],
+    "missing": ["商品转化率", "完播率"]
+  },
+  "analysis": {
+    "scores": {
+      "hook_strength": 5,
+      "product_scene_fit": 5,
+      "conversion_strength": 4,
+      "replicability": 5,
+      "overall": 5
+    },
+    "why_viral": [
+      "开头用真实小浴室痛点唤起代入感，用户能立刻判断自己和视频有关。",
+      "前后对比把抽象卖点转成可见结果，降低理解成本。",
+      "评论区显示租房人群有购买意向，说明场景选择精准。"
+    ],
+    "hook": "前 3 秒展示拥挤浴室，并提问这个角落是不是一直浪费。",
+    "content_structure": ["痛点场景", "商品出现", "前后对比", "细节答疑", "行动指令"],
+    "product_scene_fit": "商品卖点与租房、小浴室、免安装场景高度匹配，用户不需要改变使用习惯就能理解收益。",
+    "audience": "租房、小户型、需要低成本改善浴室收纳的年轻用户。",
+    "conversion_path": ["痛点代入", "查看解法", "确认尺寸和安装方式", "点击评论区链接", "下单"],
+    "reusable_patterns": ["真实空间开场", "前后对比", "评论区答疑沉淀信任"],
+    "comment_insight": "用户主要关心尺寸、安装难度和租房可迁移性。"
+  },
+  "shop_action": {
+    "benchmark_actions": [
+      "把我们的商品放进一个具体小空间里拍摄，而不是拍白底产品图。",
+      "前 3 秒只保留一个痛点，不介绍品牌和参数。",
+      "评论区预置尺寸、安装和退换答案，降低咨询成本。"
+    ],
+    "shooting_script": {
+      "duration_seconds": 35,
+      "hook": "这个浴室角落是不是也一直浪费？",
+      "scenes": [
+        "拍摄拥挤浴室全景，突出被浪费的角落。",
+        "拿出商品，展示免安装过程。",
+        "切换安装后的收纳结果和使用动作。",
+        "用字幕回答尺寸、清洗和搬家问题。",
+        "结尾指向评论区链接并给一个今天处理的理由。"
+      ],
+      "cta": "评论区看尺寸，合适就直接带走。"
+    },
+    "risks": ["缺少完播率和转化数据，不能确认最强钩子", "示例数据不能直接用于投放决策"],
+    "confidence": "medium"
+  }
+}
