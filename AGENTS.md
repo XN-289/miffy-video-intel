@@ -8,3 +8,4 @@
 6. The CLI process may read its configured `.env`; Agents must not manually open, print, copy, or commit it.
 7. Resolve the repository with `MIFFY_VIDEO_INTEL_HOME` when commands run outside the repository, and use `MIFFY_CONFIG_HOME` for a runtime-mounted config directory.
 8. Before using the existing Xiaohongshu transcript pipeline, read `skills/miffy-video-intel/references/transcript-pipeline.md` and apply its access, cleanup, and evidence-mapping rules.
+9. For Douyin videos, read `skills/miffy-video-intel/references/douyin-collection.md` and apply its guest collection route and boundaries. Never request the user's Douyin cookie or any Douyin credential.
