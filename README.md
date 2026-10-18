@@ -140,6 +140,10 @@ If the user's environment already provides `~/workspace/notes-hub/xhs_to_text.py
 
 The pipeline produces evidence, not a final benchmark. A transcript alone does not prove the first frame, on-screen text, product exposure, or comments. Missing visual and comment evidence must remain explicit in the record.
 
+## Douyin collection
+
+For Douyin videos there is no bundled scraper either. [references/douyin-collection.md](skills/miffy-video-intel/references/douyin-collection.md) records the guest collection route verified on 2026-10-18: resolve the short link, take structured facts and the commerce anchor from the app feed endpoint, download the signed video URL immediately to a persistent directory, transcribe locally, and delete the media after the frame pass. The route is guest-only and never uses the user's Douyin cookie; when it fails, the outcome is a blocked record, not a workaround through the user's account.
+
 ## Feishu configuration
 
 Use one Feishu self-built app with Bitable read/write permission. Add group messaging only if notifications are needed. For `关键帧证据`, also enable the cloud-document media upload/download permission and publish the app version. The app must be authorized for the target Bitable.
