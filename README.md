@@ -137,6 +137,8 @@ The maintained framework is [skills/miffy-video-intel/references/analysis-framew
 
 Use one Feishu self-built app with Bitable read/write permission. Add group messaging only if notifications are needed. The app must be authorized for the target Bitable.
 
+Records can also carry key-frame evidence images. When a record JSON lists `video.evidence_images` (at most 7 key frames, see the skill's selection rules), `upsert` uploads those files into the attachment field `关键帧证据`, which `ensureFields` creates automatically. This additionally requires the app's cloud-document media upload permission (`drive` media upload); without it the record is still written and the CLI prints which images failed and why. A `--dry-run` only lists the planned uploads and never uploads.
+
 `.env` values:
 
 ```text

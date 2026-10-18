@@ -30,13 +30,18 @@ Use this skill when the user provides a short-video link and wants the team to l
 4. Write one JSON file under `analyses/`:
    - complete record: `analyses/<platform>-<video-id>.json`
    - blocked record: `analyses/<platform>-<video-id>.blocked.json`
-5. Validate:
+5. Select key-frame evidence images while inspecting frames. Rules:
+   - Key frames only, never the full frame dump. At most 7 images: the opening frame, one frame per content segment that best proves its hook, mechanism, or turning point, and the closing conversion card.
+   - Save them under `analyses/assets/<video-id>/`, compressed: JPG, width at most 720px, at most 500KB each, named `<video-id>-<timestamp-seconds>s-<slug>.jpg`.
+   - Record each one in `video.evidence_images` as `{path, timestamp_seconds, label}`. `path` is relative to the record JSON file. `label` states what this frame proves, not what it shows.
+   - On upsert the CLI uploads these files into the Bitable attachment field `关键帧证据`. A dry-run only lists the planned uploads.
+6. Validate:
 
    ```bash
    npm run validate -- analyses/<file>.json
    ```
 
-6. Preview the shared Feishu workbench fields:
+7. Preview the shared Feishu workbench fields:
 
    ```bash
    npm run upsert -- analyses/<file>.json --dry-run
@@ -47,7 +52,7 @@ Use this skill when the user provides a short-video link and wants the team to l
    ```bash
    npm run upsert -- analyses/<file>.json
    ```
-7. Return the record link and the three most useful actions. Do not print Feishu secrets.
+8. Return the record link and the three most useful actions. Do not print Feishu secrets.
 
 ## Agent adaptation
 

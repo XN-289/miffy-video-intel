@@ -52,7 +52,13 @@ async function upsertFile(file, dryRun) {
   }
   const config = loadConfig({ requireFeishu: !dryRun });
   const client = dryRun ? null : createClient(config);
-  const result = await upsertRecord(client, config, record, { dryRun });
+  const result = await upsertRecord(client, config, record, {
+    dryRun,
+    baseDir: path.dirname(path.resolve(file)),
+  });
+  for (const failure of result.evidence?.failed || []) {
+    console.error(`Warning: evidence image failed to upload (${failure.label || failure.path}): ${failure.error}`);
+  }
   if (!dryRun) await notifyGroup(client, config.chatId, record, result);
   return { file, ...result };
 }

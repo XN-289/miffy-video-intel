@@ -23,6 +23,8 @@ Mark every conclusion as one of:
 
 A complete analysis requires at least two evidence entries. For a full video analysis, prefer a transcript plus two visual beats. Do not infer the creative from the URL, author name, product category, or general platform habits.
 
+Key frames are evidence, not decoration. While inspecting frames, select at most 7 key frames (opening frame, one per content segment at its hook/mechanism/turning point, closing conversion card), save them as compressed JPGs, and list them in `video.evidence_images` with a label that states what each frame proves. They are uploaded to the Bitable attachment field `关键帧证据` on upsert, so a later reader can audit every visual claim without rewatching the video.
+
 ## Shop context gate
 
 Before final scoring, collect:

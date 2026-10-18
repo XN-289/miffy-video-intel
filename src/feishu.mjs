@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import * as lark from "@larksuiteoapi/node-sdk";
 
 const text = (value) => String(value || "");
@@ -55,6 +57,7 @@ export function fieldDefinitions() {
     { field_name: "建议拍摄脚本", type: 1 },
     { field_name: "风险与待验证", type: 1 },
     { field_name: "首图链接", type: 15, ui_type: "Url" },
+    { field_name: "关键帧证据", type: 17 },
     {
       field_name: "采集状态",
       type: 3,
@@ -212,13 +215,81 @@ function stripEmpty(fields) {
   return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== null && value !== undefined && value !== ""));
 }
 
-export async function upsertRecord(client, config, record, { dryRun = false } = {}) {
+export function evidenceImageList(record) {
+  return record?.video?.evidence_images || [];
+}
+
+export function resolveEvidencePath(image, baseDir = ".") {
+  return path.isAbsolute(image.path) ? image.path : path.resolve(baseDir, image.path);
+}
+
+function describeUploadError(error) {
+  const raw = `${error?.code || ""} ${error?.message || error || ""}`.trim();
+  if (/permission|forbidden|no authority|9999166|权限/i.test(raw)) {
+    return `缺少飞书素材上传权限：请在开放平台给应用开通云文档素材上传权限后重试（原始信息：${raw}）`;
+  }
+  return raw || "unknown upload error";
+}
+
+export async function uploadEvidenceImages(client, config, record, { baseDir = ".", uploader } = {}) {
+  const uploaded = [];
+  const failed = [];
+  for (const image of evidenceImageList(record)) {
+    const file = resolveEvidencePath(image, baseDir);
+    try {
+      if (!fs.existsSync(file)) throw new Error(`file not found: ${image.path}`);
+      const buffer = fs.readFileSync(file);
+      const upload = uploader
+        ? await uploader({ file, fileName: path.basename(file), size: buffer.length, buffer, image })
+        : await client.drive.media.uploadAll({
+            data: {
+              file_name: path.basename(file),
+              parent_type: "bitable_file",
+              parent_node: config.baseId,
+              size: buffer.length,
+              file: buffer,
+            },
+          });
+      if (upload?.code && upload.code !== 0) throw new Error(`${upload.code} ${upload.msg || ""}`.trim());
+      const fileToken = upload?.file_token || upload?.data?.file_token;
+      if (!fileToken) throw new Error("upload returned no file_token");
+      uploaded.push({ ...image, file_token: fileToken });
+    } catch (error) {
+      failed.push({ ...image, error: describeUploadError(error) });
+    }
+  }
+  return { uploaded, failed };
+}
+
+export async function upsertRecord(client, config, record, { dryRun = false, baseDir = ".", uploader } = {}) {
   const fields = stripEmpty(recordToFields(record, config));
+  const planned = evidenceImageList(record);
   if (dryRun) {
-    return { action: "dry-run", field_names: Object.keys(fields), fields };
+    return {
+      action: "dry-run",
+      field_names: Object.keys(fields),
+      fields,
+      evidence_uploads: planned.map((image) => ({
+        path: image.path,
+        timestamp_seconds: image.timestamp_seconds,
+        label: image.label,
+      })),
+    };
   }
 
   await ensureFields(client, config);
+  // Upload failures must not sink the record write: the record is upserted
+  // without the failed images and the CLI reports them in `evidence.failed`.
+  const evidence = await uploadEvidenceImages(client, config, record, { baseDir, uploader });
+  if (evidence.uploaded.length) {
+    // Setting the whole attachment array replaces the previous set on update,
+    // so repeat upserts never stack duplicate attachments.
+    fields["关键帧证据"] = evidence.uploaded.map((item) => ({ file_token: item.file_token }));
+  }
+  const evidenceSummary = {
+    uploaded: evidence.uploaded.map(({ label, timestamp_seconds }) => ({ label, timestamp_seconds })),
+    failed: evidence.failed.map(({ path: imagePath, label, error }) => ({ path: imagePath, label, error })),
+  };
   const recordId = await findRecordId(client, config, record.video.url);
   if (recordId) {
     const updated = assertOk(
@@ -232,6 +303,7 @@ export async function upsertRecord(client, config, record, { dryRun = false } = 
       action: "updated",
       record_id: recordId,
       record_url: updated.data?.record?.record_url || config.baseId,
+      evidence: evidenceSummary,
     };
   }
 
@@ -246,6 +318,7 @@ export async function upsertRecord(client, config, record, { dryRun = false } = 
     action: "created",
     record_id: created.data?.record?.record_id,
     record_url: created.data?.record?.record_url || config.baseId,
+    evidence: evidenceSummary,
   };
 }
 

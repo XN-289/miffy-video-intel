@@ -68,6 +68,20 @@
             { "required": ["transcript"] },
             { "required": ["visual_notes"] }
           ]
+        },
+        "evidence_images": {
+          "type": "array",
+          "maxItems": 7,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "timestamp_seconds", "label"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "timestamp_seconds": { "type": "number", "minimum": 0 },
+              "label": { "type": "string", "minLength": 2 }
+            }
+          }
         }
       }
     },
