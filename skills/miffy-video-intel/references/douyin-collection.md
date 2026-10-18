@@ -1,6 +1,6 @@
 # Douyin video collection reference
 
-This reference records a proven guest-access route for turning one explicitly user-provided public Douyin video into the evidence a Miffy analysis needs: structured page facts, the product anchor, a downloadable video file for frame inspection, and a transcript. It was verified end-to-end on 2026-10-18 against a live commerce video. The repository does not vendor a scraper; the steps below are performed by the Agent with ordinary HTTP tools and, where noted, a guest browser session.
+This reference records a guest-access route for turning one explicitly user-provided public Douyin video into the evidence a Miffy analysis needs: structured page facts, the product anchor, a downloadable video file for frame inspection, and a transcript. It was verified end-to-end once on 2026-10-18 against a live commerce video; the app endpoint is unofficial and brittle, so treat future failures as expected. The repository does not vendor a scraper; the steps below are performed by the Agent with ordinary HTTP tools and, where noted, a guest browser session.
 
 ## Purpose and boundary
 
@@ -21,6 +21,8 @@ Never:
 
 Stop and create a blocked record when the video is private or deleted, when every route below fails, or when the only remaining route would require the user's credentials.
 
+Platform refusal means refusal. Do not change device or install identifiers, add signing, rotate user agents or proxies, or make repeated attempts to recover the same route.
+
 ## Route
 
 ### 1. Resolve the short link
@@ -40,29 +42,31 @@ Verified 2026-10-18: the share page's embedded `_ROUTER_DATA` contains no item p
 
 ### 3. Fetch structured data from the app feed endpoint
 
-The app feed endpoint answers unsigned guest requests that carry generic device parameters:
+The app feed endpoint has answered unsigned guest requests that carry inert numeric device placeholders:
 
 ```sh
-curl -s 'https://aweme.snssdk.com/aweme/v1/feed/?aweme_id=<aweme_id>&device_platform=android&os=android&ssmix=a&device_type=Pixel%207&device_brand=google&language=zh&os_api=33&os_version=13&manifest_version_code=290101&resolution=1080*2400&dpi=420&update_version_code=29109900&app_name=aweme&version_name=29.1.0&version_code=290100&device_id=<any numeric id>&iid=<any numeric id>&aid=1128' \
+curl -sS --fail --max-time 30 'https://aweme.snssdk.com/aweme/v1/feed/?aweme_id=<aweme_id>&device_platform=android&os=android&ssmix=a&device_type=Pixel%207&device_brand=google&language=zh&os_api=33&os_version=13&manifest_version_code=290101&resolution=1080*2400&dpi=420&update_version_code=29109900&app_name=aweme&version_name=29.1.0&version_code=290100&device_id=0&iid=0&aid=1128' \
   -A 'com.ss.android.ugc.aweme/290100'
 ```
 
-The response `aweme_list` contains the target item plus recommendations; select the entry whose `aweme_id` matches. From it take:
+Make at most one properly formed request for the supplied video. The response `aweme_list` must be valid JSON, contain the target item, and have an entry whose `aweme_id` exactly matches; otherwise stop and create a blocked record. From that matching entry take:
 
 - `desc`, `author.nickname`, `create_time`
 - `statistics`: `digg_count`, `collect_count`, `comment_count`, `share_count` (exact integers; no thousand-separator truncation)
 - `video.play_addr.url_list` and `video.bit_rate[].play_addr.url_list` (pick the widest, usually 720p)
 - for commerce videos, `anchor_info.extra` is a JSON string holding the promotion record: product `title`, `product_id`, `shop_id`, cumulative `sales`, price tags, and the anchor's in-video first-appearance second (`first_time`)
 
-The device parameters are generic placeholders, not a real device's identity, and the request is made without any user credential.
+Keep `device_id=0` and `iid=0` as literal inert placeholders. Do not generate plausible device/install identifiers, vary them after a failure, or claim that this is an officially supported API. The request is made without any user credential.
 
 ### 4. Download immediately, to a persistent directory
 
 The CDN URLs are signed and expire quickly (minutes to a few hours). Download in the same working session, with the app user agent and a Douyin referer, into the workspace's persistent work area — never `/tmp`, which the runtime may wipe mid-task:
 
 ```sh
-curl -s '<bit_rate url>' -A 'com.ss.android.ugc.aweme/290100' -e 'https://www.douyin.com/' -o video.mp4
+curl -sS --fail --location --max-time 120 '<bit_rate url>' -A 'com.ss.android.ugc.aweme/290100' -e 'https://www.douyin.com/' -o video.mp4
 ```
+
+Before processing, verify that the file is non-empty and readable as a video/audio container with `ffprobe`. A saved error page is not evidence. If verification or any later processing step fails, remove the partial download, audio, and any extracted temporary files, then create a blocked or partial record according to the evidence actually obtained.
 
 ### 5. Transcript and frames
 

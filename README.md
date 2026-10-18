@@ -142,7 +142,7 @@ The pipeline produces evidence, not a final benchmark. A transcript alone does n
 
 ## Douyin collection
 
-For Douyin videos there is no bundled scraper either. [references/douyin-collection.md](skills/miffy-video-intel/references/douyin-collection.md) records the guest collection route verified on 2026-10-18: resolve the short link, take structured facts and the commerce anchor from the app feed endpoint, download the signed video URL immediately to a persistent directory, transcribe locally, and delete the media after the frame pass. The route is guest-only and never uses the user's Douyin cookie; when it fails, the outcome is a blocked record, not a workaround through the user's account.
+For Douyin videos there is no bundled scraper either. [references/douyin-collection.md](skills/miffy-video-intel/references/douyin-collection.md) records a guest collection route verified once on 2026-10-18: resolve the short link, take structured facts and the commerce anchor from an unauthenticated app feed endpoint, download the returned signed video URL immediately to a persistent working directory, transcribe locally, and delete the media after the frame pass. This is a brittle, unofficial endpoint observation, not a supported API. The route is guest-only and never uses the user's Douyin cookie; when the first properly formed request fails, the outcome is a blocked record, not a parameter-tuning or account workaround.
 
 ## Feishu configuration
 
