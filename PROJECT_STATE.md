@@ -1,11 +1,11 @@
 # PROJECT_STATE
 
-Updated: 2026-10-18 22:10
-Current phase: release
+Updated: 2026-10-18 22:14
+Current phase: handoff
 
 ## 一句话现状
 
-Miffy v0.5.0 已实现可操作的群入口、记录链接、待补充队列和外部 Agent 任务提示词，待本轮回滚检查后提交。
+Miffy v0.5.0 已实现并推送可操作的群入口、记录链接、待补充队列和外部 Agent 任务提示词，等待用户完成飞书后台配置后实测。
 
 ## 已接受事实
 
@@ -28,7 +28,9 @@ Miffy v0.5.0 已实现可操作的群入口、记录链接、待补充队列和�
 
 ## 已验收
 
-- 尚未做真实飞书群连接验收；本仓库已完成自动化验证，等待用户配置飞书后台后实测。
+- 本地自动化验证 - Codex - `npm run check`、`npm test`、`npm run validate:examples`、`npm run dry-run`、`npm audit --omit=dev` 全部通过。
+- GitHub Actions - Codex - 提交 `5f9cd89` 的 Node 20 / 22 verify 均为 success。
+- 尚未做真实飞书群连接验收，不能声称机器人已在群里可用。
 
 ## 未决问题
 
@@ -37,9 +39,8 @@ Miffy v0.5.0 已实现可操作的群入口、记录链接、待补充队列和�
 
 ## 下一步
 
-1. 运行 `npm run check`、`npm test`、`npm run validate:examples`、`npm run dry-run`。验收标准：全部通过。
-2. 提交并推送 `main`。验收标准：GitHub 远端包含本次改动。
-3. 用户配置飞书后台后运行 `npm run gateway`。验收标准：群里命令返回可点击链接且新链接只生成一条待补充记录。
+1. 用户在飞书后台开启机器人能力、消息收发权限、长连接事件订阅 `im.message.receive_v1`，并发布新版本。
+2. 用户把 Miffy 加入目标群后运行 `npm run gateway`。验收标准：群里命令返回可点击链接且新链接只生成一条待补充记录。
 
 ## 恢复上下文
 
