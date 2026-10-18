@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadConfig } from "../src/config.mjs";
 import { createClient, initWorkbench, notifyGroup, upsertRecord } from "../src/feishu.mjs";
 import { validateRecord } from "../src/validator.mjs";
@@ -16,6 +17,8 @@ Usage:
 Environment:
   Copy .env.example to .env, then fill Feishu values locally.
 `;
+
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function readJson(file) {
   const full = path.resolve(file);
@@ -52,7 +55,7 @@ async function upsertFile(file, dryRun) {
   }
   const config = loadConfig({ requireFeishu: !dryRun });
   const client = dryRun ? null : createClient(config);
-  const result = await upsertRecord(client, config, record, { dryRun });
+  const result = await upsertRecord(client, config, record, { dryRun, assetBasePath: packageRoot });
   if (!dryRun) await notifyGroup(client, config.chatId, record, result);
   return { file, ...result };
 }

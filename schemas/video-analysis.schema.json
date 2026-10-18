@@ -30,6 +30,20 @@
           }
         },
         "metrics_text": { "type": "string" },
+        "evidence_images": {
+          "type": "array",
+          "maxItems": 7,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "timestamp_seconds", "label"],
+            "properties": {
+              "path": { "type": "string", "minLength": 5 },
+              "timestamp_seconds": { "type": "number", "minimum": 0 },
+              "label": { "type": "string", "minLength": 4 }
+            }
+          }
+        },
         "product": {
           "type": "object",
           "additionalProperties": false,

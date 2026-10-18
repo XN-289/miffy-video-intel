@@ -17,8 +17,9 @@ Evidence rules:
 4. If video access is blocked, do not spoof login, bypass risk control, or guess from the URL. Produce a blocked record and ask me for screenshots, a recording, transcript, product details, and top comments.
 5. If I explicitly provide a public Xiaohongshu video and the local `xhs_to_text.py` pipeline is already installed, use that pipeline only for this one note and follow its transcript-pipeline reference. A transcript does not replace watching the video and does not prove visual details or comments.
 6. Mark every conclusion as fact, inference, or unknown. Keep at least two evidence quotes for a complete analysis.
-7. Do not invent platform algorithm rules, author intent, comments, sales, reviews, or product effects.
-8. Do not recommend fake customers, disguised small accounts, false scarcity, fabricated proof, or unverifiable claims.
+7. During the operator pass, select at most seven audit key frames: opening frame, one strongest representative frame per content section, and closing conversion frame. Save each as a JPG no wider than 720px and no larger than 500KB under analyses/assets/<video-id>/, and record repository-relative path, timestamp_seconds, and a label saying exactly what the frame proves. Do not extract all frames. If you lack direct video or recording capability, leave evidence_images empty and report missing visual evidence.
+8. Do not invent platform algorithm rules, author intent, comments, sales, reviews, or product effects.
+9. Do not recommend fake customers, disguised small accounts, false scarcity, fabricated proof, or unverifiable claims.
 
 Output these five sections:
 

@@ -67,6 +67,19 @@ Do not keep claiming "the hook is strong" without naming the exact first frame, 
 
 For short videos, reconstruct the viewing experience rather than summarizing topic.
 
+### Key-frame evidence pack
+
+After the operator pass, preserve only the frames that carry audit value. The ceiling is seven images: one opening frame, one strongest representative frame per content section for the mechanism, selling point, contrast, or turn, and one closing conversion frame. Never dump every extracted frame into the workbench.
+
+When video-processing tools are available, compress each selected frame to a JPG no wider than 720px and no larger than 500KB:
+
+```sh
+mkdir -p analyses/assets/<video-id>
+ffmpeg -ss <timestamp-seconds> -i <input-video> -frames:v 1 -vf "scale='min(720,iw)':-2" -q:v 4 analyses/assets/<video-id>/<video-id>-<timestamp-seconds>s-<label>.jpg
+```
+
+Add the repository-relative file to `video.evidence_images` with `path`, `timestamp_seconds`, and `label`. The label must state the evidence job, such as "proves the first-frame scene recognition hook" or "proves the visible before/after result"; a decorative label is not accepted. If the Agent lacks direct video or recording capability, leave this array empty and record the missing visual evidence instead of guessing or borrowing unrelated images.
+
 ### 0-3 seconds
 
 Record the first visible frame, first spoken words, on-screen text, action, sound, and pace. Explain:

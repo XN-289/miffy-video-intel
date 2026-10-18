@@ -23,23 +23,25 @@ Use this skill when the user provides a short-video link and wants the team to l
    - at least two concrete visual notes
 6. To claim a full visual analysis, the Agent must have watched the video or user-provided recording and produced timestamped visual notes. Otherwise mark `collection.access` as `partial`, list the missing visual evidence, and cap relevant scores.
 7. Every inference must be traceable to evidence in `collection.evidence`. Write "unknown" or add a risk instead of guessing.
+8. Do not manufacture key-frame evidence without direct video or recording access. An Agent without visual/video capability must leave `video.evidence_images` empty and report the missing visual evidence; it must not inspect or interpret unrelated images to fill the field.
 
 ## Workflow
 
 1. Resolve the repository root. Use the current directory if it contains `package.json`; otherwise use `MIFFY_VIDEO_INTEL_HOME`.
 2. Open the page and inspect the actual video with the Agent's allowed browser/player. Watch the whole video once for the viewer experience, then replay key sections to capture timestamped visual beats, spoken words, on-screen text, sound, editing rhythm, product exposure, proof, and the closing CTA.
 3. Collect visible page facts: title, author, description, metrics, comments, product details, and purchase path. For a Xiaohongshu video where the user's existing transcript pipeline is available, use it only as an auxiliary transcript source and follow `references/transcript-pipeline.md`; it does not replace direct video inspection.
-4. Analyze according to `references/analysis-framework.md`. When another Agent needs a compact reusable prompt, use `references/analysis-prompt.md`.
-5. Write one JSON file under `analyses/`:
+4. During the frame-verification pass, select at most seven key frames: opening frame, the strongest representative frame for each content section, and the closing conversion frame. Do not extract or upload the full frame set. Save each as a JPG no wider than 720px and no larger than 500KB under `analyses/assets/<video-id>/`, name it `<video-id>-<timestamp-seconds>s-<label>.jpg`, and add it to optional `video.evidence_images` with `path`, `timestamp_seconds`, and a specific evidence `label`. The label must say what the frame proves, such as the visible hook, mechanism, product exposure, proof, or CTA.
+5. Analyze according to `references/analysis-framework.md`. When another Agent needs a compact reusable prompt, use `references/analysis-prompt.md`.
+6. Write one JSON file under `analyses/`:
    - complete record: `analyses/<platform>-<video-id>.json`
    - blocked record: `analyses/<platform>-<video-id>.blocked.json`
-6. Validate:
+7. Validate:
 
    ```bash
    npm run validate -- analyses/<file>.json
    ```
 
-7. Preview the shared Feishu workbench fields:
+8. Preview the shared Feishu workbench fields:
 
    ```bash
    npm run upsert -- analyses/<file>.json --dry-run
@@ -50,7 +52,7 @@ Use this skill when the user provides a short-video link and wants the team to l
    ```bash
    npm run upsert -- analyses/<file>.json
    ```
-8. Return the record link and the three most useful actions. Do not print Feishu secrets.
+9. Return the record link and the three most useful actions. Do not print Feishu secrets.
 
 ## Agent adaptation
 
@@ -68,3 +70,4 @@ The table is the comparison system, not just storage. Keep these practices:
 - Use score fields to compare hooks, product-scene fit, conversion, and replicability.
 - Put unresolved questions in `风险与待验证`.
 - Preserve original evidence in `证据摘录` so future agents can revisit conclusions.
+- `关键帧证据` stores up to seven compressed JPG attachments. A real upsert replaces the whole attachment group; upload failures are reported without blocking the text record.

@@ -21,3 +21,4 @@ Feishu free dashboards can add charts by grouping:
 - Do not overwrite evidence with later guesses; append new evidence and update conclusions.
 - Keep blocked records until enough materials arrive.
 - If product category changes after more evidence, update platform/product fields rather than creating a second record.
+- `关键帧证据` is a replace-as-group attachment field: each real upsert writes the successful frame set for that run and does not append old attachments. Check the CLI result for failed frame uploads before treating the evidence set as complete.

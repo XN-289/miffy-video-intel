@@ -142,7 +142,7 @@ The pipeline produces evidence, not a final benchmark. A transcript alone does n
 
 ## Feishu configuration
 
-Use one Feishu self-built app with Bitable read/write permission. Add group messaging only if notifications are needed. The app must be authorized for the target Bitable.
+Use one Feishu self-built app with Bitable read/write permission. Add group messaging only if notifications are needed. For `关键帧证据`, also enable the cloud-document media upload/download permission and publish the app version. The app must be authorized for the target Bitable.
 
 `.env` values:
 
@@ -163,6 +163,8 @@ npm run init --
 ```
 
 Copy the returned `app_token` and `table_id` into the runtime secret store. To continue using an existing Bitable, configure its existing values.
+
+`关键帧证据` is a Bitable attachment field. `video.evidence_images` is optional and backward-compatible: legacy JSON remains valid. Each item uses a repository-relative `path`, `timestamp_seconds`, and evidence `label`. A real upsert uploads valid JPGs through Feishu's media API and writes their `file_token`s as one complete attachment group, so repeated updates replace rather than accumulate. `--dry-run` only lists the local files it would upload. A failed image upload is reported in `attachments.failed` and does not stop the text record from being created or updated.
 
 ## Usage
 
@@ -190,6 +192,8 @@ Copy the returned `app_token` and `table_id` into the runtime secret store. To c
    ```
 
 URL matching removes tokens such as `xsec_token` and `utm_*`, so the same content updates one record instead of creating duplicates.
+
+Key-frame files live under `analyses/assets/<video-id>/`, use `<video-id>-<timestamp-seconds>s-<label>.jpg`, and must be JPGs no wider than 720px and no larger than 500KB. Select at most seven: opening frame, one representative frame per content section, and the closing conversion frame.
 
 ## Blocked intake
 

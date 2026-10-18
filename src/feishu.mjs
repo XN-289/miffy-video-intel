@@ -1,6 +1,11 @@
 import * as lark from "@larksuiteoapi/node-sdk";
+import fs from "node:fs";
+import path from "node:path";
 
 const text = (value) => String(value || "");
+const EVIDENCE_IMAGE_LIMIT = 7;
+const EVIDENCE_IMAGE_MAX_BYTES = 500 * 1024;
+const EVIDENCE_IMAGE_MAX_WIDTH = 720;
 
 function joinList(values) {
   return (values || []).map((item, index) => `${index + 1}. ${item}`).join("\n");
@@ -55,6 +60,7 @@ export function fieldDefinitions() {
     { field_name: "建议拍摄脚本", type: 1 },
     { field_name: "风险与待验证", type: 1 },
     { field_name: "首图链接", type: 15, ui_type: "Url" },
+    { field_name: "关键帧证据", type: 17, ui_type: "Attachment" },
     {
       field_name: "采集状态",
       type: 3,
@@ -212,14 +218,205 @@ function stripEmpty(fields) {
   return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== null && value !== undefined && value !== ""));
 }
 
-export async function upsertRecord(client, config, record, { dryRun = false } = {}) {
+function jpegDimensions(buffer) {
+  if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) return null;
+
+  let offset = 2;
+  while (offset + 9 < buffer.length) {
+    if (buffer[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+
+    const marker = buffer[offset + 1];
+    if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd9)) {
+      offset += 2;
+      continue;
+    }
+
+    const startOfFrame = (marker >= 0xc0 && marker <= 0xc3) ||
+      (marker >= 0xc5 && marker <= 0xc7) ||
+      (marker >= 0xc9 && marker <= 0xcb) ||
+      (marker >= 0xcd && marker <= 0xcf);
+    if (startOfFrame) {
+      return { width: buffer.readUInt16BE(offset + 7), height: buffer.readUInt16BE(offset + 5) };
+    }
+    if (marker === 0xda || offset + 3 >= buffer.length) return null;
+
+    offset += 2 + buffer.readUInt16BE(offset + 2);
+  }
+  return null;
+}
+
+function evidenceImageFailure(item, reason) {
+  return {
+    path: item?.path || "",
+    timestamp_seconds: item?.timestamp_seconds,
+    label: item?.label || "",
+    reason,
+  };
+}
+
+export function inspectEvidenceImages(record, assetBasePath = process.cwd()) {
+  const items = record?.video?.evidence_images || [];
+  const basePath = path.resolve(assetBasePath);
+  const planned = [];
+  const failed = [];
+
+  if (items.length > EVIDENCE_IMAGE_LIMIT) {
+    failed.push({
+      path: "",
+      timestamp_seconds: undefined,
+      label: "",
+      reason: `select at most ${EVIDENCE_IMAGE_LIMIT} key frames, received ${items.length}`,
+    });
+    return { planned, failed };
+  }
+
+  for (const item of items) {
+    const rawPath = item.path || "";
+    const normalizedPath = rawPath.replace(/\\/g, "/");
+    if (!normalizedPath.startsWith("analyses/assets/")) {
+      failed.push(evidenceImageFailure(item, "path must start with analyses/assets/"));
+      continue;
+    }
+    if (path.isAbsolute(rawPath) || /^[a-zA-Z]:[\\/]/.test(rawPath) || rawPath.split(/[\\/]+/).includes("..")) {
+      failed.push(evidenceImageFailure(item, "path must be repository-relative and cannot traverse outside it"));
+      continue;
+    }
+
+    const fullPath = path.resolve(basePath, rawPath);
+    if (fullPath !== basePath && !fullPath.startsWith(`${basePath}${path.sep}`)) {
+      failed.push(evidenceImageFailure(item, "path must stay inside the repository"));
+      continue;
+    }
+    if (path.extname(rawPath).toLowerCase() !== ".jpg") {
+      failed.push(evidenceImageFailure(item, "only .jpg files are accepted"));
+      continue;
+    }
+    const timestamp = Number(item.timestamp_seconds);
+    if (!Number.isFinite(timestamp) || !path.basename(normalizedPath).includes(`-${timestamp}s-`)) {
+      failed.push(evidenceImageFailure(item, "file name must contain -<timestamp-seconds>s- before the label"));
+      continue;
+    }
+
+    let stat;
+    try {
+      stat = fs.statSync(fullPath);
+    } catch {
+      failed.push(evidenceImageFailure(item, "file not found"));
+      continue;
+    }
+    if (!stat.isFile()) {
+      failed.push(evidenceImageFailure(item, "path is not a file"));
+      continue;
+    }
+    if (stat.size > EVIDENCE_IMAGE_MAX_BYTES) {
+      failed.push(evidenceImageFailure(item, `file is ${stat.size} bytes; compress it to ${EVIDENCE_IMAGE_MAX_BYTES} bytes or less`));
+      continue;
+    }
+
+    let buffer;
+    try {
+      buffer = fs.readFileSync(fullPath);
+    } catch (error) {
+      failed.push(evidenceImageFailure(item, `cannot read file header: ${error?.message || error}`));
+      continue;
+    }
+    const dimensions = jpegDimensions(buffer);
+    if (!dimensions) {
+      failed.push(evidenceImageFailure(item, "cannot read JPEG dimensions; regenerate the frame with ffmpeg"));
+      continue;
+    }
+    if (dimensions.width > EVIDENCE_IMAGE_MAX_WIDTH) {
+      failed.push(evidenceImageFailure(item, `width is ${dimensions.width}px; compress it to ${EVIDENCE_IMAGE_MAX_WIDTH}px or less`));
+      continue;
+    }
+
+    planned.push({
+      path: rawPath,
+      file_name: path.basename(fullPath),
+      absolute_path: fullPath,
+      timestamp_seconds: item.timestamp_seconds,
+      label: item.label,
+      size_bytes: stat.size,
+      width: dimensions.width,
+      height: dimensions.height,
+    });
+  }
+
+  return { planned, failed };
+}
+
+function attachmentFailureReason(error) {
+  const details = [error?.msg, error?.response?.data?.msg, error?.response?.data?.error?.message, error?.message]
+    .filter(Boolean)
+    .map((value) => String(value))
+    .join(" ");
+  const normalized = details.toLowerCase();
+  if (normalized.includes("permission") || normalized.includes("forbidden") || normalized.includes("403") || normalized.includes("access denied") || normalized.includes("权限")) {
+    return "上传失败：请给飞书应用开通「上传、下载云文档素材」权限，发布新版本后重试";
+  }
+  return `upload failed: ${details || "unknown error"}`;
+}
+
+async function uploadEvidenceImages(client, config, planned) {
+  const uploaded = [];
+  const failed = [];
+
+  for (const image of planned) {
+    try {
+      const file = fs.readFileSync(image.absolute_path);
+      const response = await client.drive.media.uploadAll({
+        data: {
+          file_name: image.file_name,
+          parent_type: "bitable_image",
+          parent_node: config.baseId,
+          size: file.length,
+          file,
+        },
+      });
+      if (response?.code && response.code !== 0) throw new Error(response.msg || `Feishu error ${response.code}`);
+      const fileToken = response?.file_token;
+      if (!fileToken) throw new Error("Feishu did not return a file token");
+      uploaded.push({ path: image.path, file_token: fileToken });
+    } catch (error) {
+      failed.push({
+        path: image.path,
+        timestamp_seconds: image.timestamp_seconds,
+        label: image.label,
+        reason: attachmentFailureReason(error),
+      });
+    }
+  }
+
+  return { uploaded, failed };
+}
+
+export async function upsertRecord(client, config, record, { dryRun = false, assetBasePath = process.cwd() } = {}) {
   const fields = stripEmpty(recordToFields(record, config));
+  const evidence = record?.video?.evidence_images || [];
+  const evidencePlan = inspectEvidenceImages(record, assetBasePath);
+
   if (dryRun) {
-    return { action: "dry-run", field_names: Object.keys(fields), fields };
+    return {
+      action: "dry-run",
+      field_names: Object.keys(fields),
+      fields,
+      attachments: {
+        will_upload: evidencePlan.planned,
+        failed: evidencePlan.failed,
+      },
+    };
   }
 
   await ensureFields(client, config);
   const recordId = await findRecordId(client, config, record.video.url);
+  const attachments = await uploadEvidenceImages(client, config, evidencePlan.planned);
+  if (evidence.length) {
+    fields["关键帧证据"] = attachments.uploaded.map((item) => ({ file_token: item.file_token }));
+  }
+
   if (recordId) {
     const updated = assertOk(
       await client.bitable.appTableRecord.update({
@@ -232,6 +429,7 @@ export async function upsertRecord(client, config, record, { dryRun = false } = 
       action: "updated",
       record_id: recordId,
       record_url: updated.data?.record?.record_url || config.baseId,
+      attachments,
     };
   }
 
@@ -246,6 +444,7 @@ export async function upsertRecord(client, config, record, { dryRun = false } = 
     action: "created",
     record_id: created.data?.record?.record_id,
     record_url: created.data?.record?.record_url || config.baseId,
+    attachments,
   };
 }
 

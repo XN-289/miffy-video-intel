@@ -5,12 +5,28 @@ import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import { normalizeUrl, recordToFields } from "../src/feishu.mjs";
+import { fieldDefinitions, normalizeUrl, recordToFields, upsertRecord } from "../src/feishu.mjs";
 import { validateRecord } from "../src/validator.mjs";
 
 const execFileAsync = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const readJson = (file) => JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
+
+function writeTinyJpeg(file, width = 1) {
+  const height = 1;
+  const bytes = Buffer.from([
+    0xff, 0xd8,
+    0xff, 0xe0, 0x00, 0x04, 0x00, 0x00,
+    0xff, 0xc0, 0x00, 0x11, 0x08,
+    (height >> 8) & 0xff, height & 0xff,
+    (width >> 8) & 0xff, width & 0xff,
+    0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01,
+    0xff, 0xd9,
+  ]);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, bytes);
+  return file;
+}
 
 test("complete example passes schema validation", () => {
   const result = validateRecord(readJson("templates/video-analysis.example.json"));
@@ -69,6 +85,153 @@ test("recordToFields maps key information to Feishu fields", () => {
   assert.equal(fields["采集Agent"], "Muse");
   assert.equal(fields["模型"], "example-model");
   assert.ok(fields["建议拍摄脚本"].includes("35 秒"));
+});
+
+test("legacy records without evidence images keep validating", () => {
+  const record = readJson("templates/video-analysis.example.json");
+  assert.equal(record.video.evidence_images, undefined);
+  assert.equal(validateRecord(record).valid, true);
+  assert.equal("关键帧证据" in recordToFields(record), false);
+  assert.ok(fieldDefinitions().some((field) => field.field_name === "关键帧证据" && field.type === 17 && field.ui_type === "Attachment"));
+});
+
+test("dry-run lists evidence images without an upload client", async () => {
+  const temporaryRoot = fs.mkdtempSync(path.join(path.dirname(root), "miffy-evidence-"));
+  try {
+    const record = readJson("templates/video-analysis.example.json");
+    record.video.evidence_images = [
+      {
+        path: "analyses/assets/example-video/example-video-0s-opening-hook.jpg",
+        timestamp_seconds: 0,
+        label: "开场帧证明前3秒的视觉钩子",
+      },
+    ];
+    writeTinyJpeg(path.join(temporaryRoot, record.video.evidence_images[0].path));
+
+    const result = await upsertRecord(null, {}, record, { dryRun: true, assetBasePath: temporaryRoot });
+    assert.equal(result.action, "dry-run");
+    assert.equal(result.attachments.will_upload.length, 1);
+    assert.deepEqual(result.attachments.failed, []);
+    assert.equal(result.attachments.will_upload[0].width, 1);
+    assert.equal("关键帧证据" in result.fields, false);
+  } finally {
+    fs.rmSync(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test("upsert uploads key frames and replaces the whole attachment set", async () => {
+  const temporaryRoot = fs.mkdtempSync(path.join(path.dirname(root), "miffy-evidence-"));
+  const uploads = [];
+  const updates = [];
+  const fieldNames = fieldDefinitions().map((field) => field.field_name);
+  const client = {
+    bitable: {
+      appTableField: {
+        list: async () => ({
+          code: 0,
+          data: { has_more: false, items: fieldNames.map((name) => ({ field_name: name })) },
+        }),
+      },
+      appTableRecord: {
+        search: async () => ({
+          code: 0,
+          data: {
+            has_more: false,
+            items: [{ record_id: "rec_1", fields: { 视频链接: "https://www.example.com/video" } }],
+          },
+        }),
+        update: async (payload) => {
+          updates.push(payload);
+          return { code: 0, data: { record: { record_id: "rec_1", record_url: "https://example.com/rec_1" } } };
+        },
+      },
+    },
+    drive: {
+      media: {
+        uploadAll: async (payload) => {
+          uploads.push(payload);
+          return { file_token: `token_${uploads.length}` };
+        },
+      },
+    },
+  };
+
+  try {
+    const record = readJson("templates/video-analysis.example.json");
+    record.video.evidence_images = [
+      { path: "analyses/assets/example-video/example-video-0s-opening-hook.jpg", timestamp_seconds: 0, label: "开场帧证明前3秒的视觉钩子" },
+      { path: "analyses/assets/example-video/example-video-30s-closing-cta.jpg", timestamp_seconds: 30, label: "结尾帧证明转化指令" },
+    ];
+    for (const image of record.video.evidence_images) writeTinyJpeg(path.join(temporaryRoot, image.path));
+
+    const config = { baseId: "base_1", tableId: "table_1" };
+    const first = await upsertRecord(client, config, record, { assetBasePath: temporaryRoot });
+    const second = await upsertRecord(client, config, record, { assetBasePath: temporaryRoot });
+
+    assert.equal(uploads.length, 4);
+    assert.equal(first.attachments.uploaded.length, 2);
+    assert.equal(second.attachments.uploaded.length, 2);
+    assert.deepEqual(updates[0].data.fields["关键帧证据"], [{ file_token: "token_1" }, { file_token: "token_2" }]);
+    assert.deepEqual(updates[1].data.fields["关键帧证据"], [{ file_token: "token_3" }, { file_token: "token_4" }]);
+    assert.equal(updates[1].data.fields["关键帧证据"].length, 2);
+    for (const upload of uploads) {
+      assert.equal(upload.data.parent_type, "bitable_image");
+      assert.equal(upload.data.parent_node, "base_1");
+    }
+  } finally {
+    fs.rmSync(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test("a failed image upload does not block the text record", async () => {
+  const temporaryRoot = fs.mkdtempSync(path.join(path.dirname(root), "miffy-evidence-"));
+  const updates = [];
+  const fieldNames = fieldDefinitions().map((field) => field.field_name);
+  const client = {
+    bitable: {
+      appTableField: {
+        list: async () => ({
+          code: 0,
+          data: { has_more: false, items: fieldNames.map((name) => ({ field_name: name })) },
+        }),
+      },
+      appTableRecord: {
+        search: async () => ({
+          code: 0,
+          data: { has_more: false, items: [{ record_id: "rec_1", fields: { 视频链接: "https://www.example.com/video" } }] },
+        }),
+        update: async (payload) => {
+          updates.push(payload);
+          return { code: 0, data: { record: { record_id: "rec_1", record_url: "https://example.com/rec_1" } } };
+        },
+      },
+    },
+    drive: {
+      media: {
+        uploadAll: async ({ data }) => {
+          if (data.file_name.includes("-30s-")) throw new Error("Permission denied");
+          return { file_token: "token_ok" };
+        },
+      },
+    },
+  };
+
+  try {
+    const record = readJson("templates/video-analysis.example.json");
+    record.video.evidence_images = [
+      { path: "analyses/assets/example-video/example-video-0s-opening-hook.jpg", timestamp_seconds: 0, label: "开场帧证明前3秒的视觉钩子" },
+      { path: "analyses/assets/example-video/example-video-30s-closing-cta.jpg", timestamp_seconds: 30, label: "结尾帧证明转化指令" },
+    ];
+    for (const image of record.video.evidence_images) writeTinyJpeg(path.join(temporaryRoot, image.path));
+
+    const result = await upsertRecord(client, { baseId: "base_1", tableId: "table_1" }, record, { assetBasePath: temporaryRoot });
+    assert.equal(result.action, "updated");
+    assert.deepEqual(updates[0].data.fields["关键帧证据"], [{ file_token: "token_ok" }]);
+    assert.equal(result.attachments.failed.length, 1);
+    assert.match(result.attachments.failed[0].reason, /上传、下载云文档素材/);
+  } finally {
+    fs.rmSync(temporaryRoot, { recursive: true, force: true });
+  }
 });
 
 test("blocked records remain explicit intake tasks", () => {
