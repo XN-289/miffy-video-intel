@@ -20,7 +20,11 @@
     ],
     "content": {
       "transcript": "开头直接展示小浴室里的麻烦，然后对比安装前后的使用状态，最后解释商品如何解决收纳问题。",
-      "visual_notes": ["前 3 秒展示拥挤浴室", "中段对比安装前后", "结尾给收纳结果特写"]
+      "visual_notes": [
+        "0-3秒：近景展示拥挤浴室和被浪费的角落",
+        "12-18秒：对比安装前后的同一角度",
+        "30-35秒：结尾给收纳结果特写和行动指令"
+      ]
     }
   },
   "collection": {
@@ -30,7 +34,7 @@
     "model": "example-model",
     "collected_at": "2026-10-18T20:00:00+08:00",
     "evidence": [
-      { "source": "transcript", "quote": "开头直接展示小浴室里的麻烦", "confidence": "high" },
+      { "source": "video", "quote": "0-3s：近景展示拥挤浴室和被浪费的角落", "confidence": "high" },
       { "source": "comments", "quote": "求链接，正好租房用。", "confidence": "high" }
     ],
     "missing": ["商品转化率", "完播率"]

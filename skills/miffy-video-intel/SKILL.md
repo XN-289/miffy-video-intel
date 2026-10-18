@@ -10,33 +10,36 @@ Use this skill when the user provides a short-video link and wants the team to l
 ## Non-negotiable evidence rule
 
 1. First try to open the page with the Agent's own browser capability.
-2. If the page is blocked or requires login, do not spoof a browser, do not bypass platform risk control, and do not infer the video from the URL.
-3. Immediately produce `templates/blocked-video.example.json` as the output shape, then ask the user for:
+2. For a video link, inspect the actual video in the allowed browser/player or an explicitly supplied recording. Page metadata, a cover image, or a transcript alone is not a full video analysis.
+3. If the page is blocked or requires login, do not spoof a browser, do not bypass platform risk control, and do not infer the video from the URL.
+4. Immediately produce `templates/blocked-video.example.json` as the output shape, then ask the user for:
    - video screenshots or a short recording
    - transcript or main visual beats
    - product information and price range
    - top comments
    - visible metrics
-4. A complete analysis requires the URL, platform, title, and at least one of:
+5. A complete record requires the URL, platform, title, and at least one of:
    - a transcript of at least 30 characters
    - at least two concrete visual notes
-5. Every inference must be traceable to evidence in `collection.evidence`. Write "unknown" or add a risk instead of guessing.
+6. To claim a full visual analysis, the Agent must have watched the video or user-provided recording and produced timestamped visual notes. Otherwise mark `collection.access` as `partial`, list the missing visual evidence, and cap relevant scores.
+7. Every inference must be traceable to evidence in `collection.evidence`. Write "unknown" or add a risk instead of guessing.
 
 ## Workflow
 
 1. Resolve the repository root. Use the current directory if it contains `package.json`; otherwise use `MIFFY_VIDEO_INTEL_HOME`.
-2. Collect visible facts with the Agent browser. Capture title, author, description, metrics, comments, product details, transcript, and visual beats when available. For a Xiaohongshu video where the user's existing transcript pipeline is available, follow `references/transcript-pipeline.md`.
-3. Analyze according to `references/analysis-framework.md`. When another Agent needs a compact reusable prompt, use `references/analysis-prompt.md`.
-4. Write one JSON file under `analyses/`:
+2. Open the page and inspect the actual video with the Agent's allowed browser/player. Watch the whole video once for the viewer experience, then replay key sections to capture timestamped visual beats, spoken words, on-screen text, sound, editing rhythm, product exposure, proof, and the closing CTA.
+3. Collect visible page facts: title, author, description, metrics, comments, product details, and purchase path. For a Xiaohongshu video where the user's existing transcript pipeline is available, use it only as an auxiliary transcript source and follow `references/transcript-pipeline.md`; it does not replace direct video inspection.
+4. Analyze according to `references/analysis-framework.md`. When another Agent needs a compact reusable prompt, use `references/analysis-prompt.md`.
+5. Write one JSON file under `analyses/`:
    - complete record: `analyses/<platform>-<video-id>.json`
    - blocked record: `analyses/<platform>-<video-id>.blocked.json`
-5. Validate:
+6. Validate:
 
    ```bash
    npm run validate -- analyses/<file>.json
    ```
 
-6. Preview the shared Feishu workbench fields:
+7. Preview the shared Feishu workbench fields:
 
    ```bash
    npm run upsert -- analyses/<file>.json --dry-run
@@ -47,12 +50,12 @@ Use this skill when the user provides a short-video link and wants the team to l
    ```bash
    npm run upsert -- analyses/<file>.json
    ```
-7. Return the record link and the three most useful actions. Do not print Feishu secrets.
+8. Return the record link and the three most useful actions. Do not print Feishu secrets.
 
 ## Agent adaptation
 
 - If the Agent cannot run shell commands, output the complete JSON and ask the user to run validation/upsert.
-- If the Agent has multimodal tools, inspect screenshots before analysis.
+- If the Agent has multimodal tools, inspect the actual video or the supplied recording/screenshots before analysis; do not analyze only the cover image or transcript.
 - If the user provides new outcome data such as views, completion rate, or sales, update the record JSON and rerun upsert rather than creating a duplicate.
 - If the framework produces an inaccurate conclusion, update `references/analysis-framework.md` in the repository and explain the correction. Do not silently keep a private prompt variant.
 

@@ -33,6 +33,26 @@ test("complete analysis requires transcript or visual evidence", () => {
   assert.ok(result.errors.some((error) => error.includes("video.content")));
 });
 
+test("transcript-only records cannot claim full video visibility", () => {
+  const record = readJson("templates/video-analysis.example.json");
+  record.collection.access = "visible";
+  record.collection.evidence = [
+    { source: "page", quote: "标题展示小浴室收纳方案", confidence: "high" },
+    { source: "transcript", quote: "开头直接展示小浴室里的麻烦", confidence: "high" },
+  ];
+  const result = validateRecord(record);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.includes("source video")));
+});
+
+test("direct video evidence requires timestamped visual notes", () => {
+  const record = readJson("templates/video-analysis.example.json");
+  record.video.content.visual_notes = ["画面有冲击力", "产品出现过"];
+  const result = validateRecord(record);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.includes("timestamped")));
+});
+
 test("URL normalization removes tracking and access parameters", () => {
   const normalized = normalizeUrl(
     "https://www.xiaohongshu.com/explore/abc?xsec_token=secret&utm_source=chat&keep=1"

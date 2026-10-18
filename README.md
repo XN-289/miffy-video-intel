@@ -5,7 +5,7 @@ Miffy Video Intel is an evidence-first e-commerce benchmark package for Muse, Co
 ```text
 promising e-commerce video link
 → external Agent collects visible evidence
-→ Miffy analysis framework v0.3
+→ Miffy analysis framework v0.4
 → standard JSON record
 → schema validation
 → Feishu Bitable create-or-update by canonical URL
@@ -107,8 +107,8 @@ Install and enable miffy-video-intel:
 3. Set MIFFY_VIDEO_INTEL_HOME to the repository root.
 4. If credentials are provided by the runtime, set MIFFY_CONFIG_HOME to the directory containing .env. Never print or commit credentials.
 5. Read skills/miffy-video-intel/SKILL.md and references/analysis-framework.md.
-6. When I send a video link, collect only what your allowed browser can see. If access is blocked, create a blocked record and ask me for evidence instead of guessing.
-7. Analyze with the v0.3 framework, write a schema-valid JSON file, run validate, then run upsert --dry-run unless I explicitly request a real Feishu write.
+6. When I send a video link, open the page and inspect the actual video with your allowed browser/player. Record timestamped visual beats; do not treat metadata, cover, or transcript as a full video analysis. If access is blocked, create a blocked record and ask me for evidence instead of guessing.
+7. Analyze with the v0.4 framework, write a schema-valid JSON file, run validate, then run upsert --dry-run unless I explicitly request a real Feishu write.
 ```
 
 Agent roles:
@@ -119,9 +119,10 @@ Agent roles:
 
 ## Analysis kernel
 
-The maintained framework is [skills/miffy-video-intel/references/analysis-framework.md](skills/miffy-video-intel/references/analysis-framework.md). Its v0.3 focus:
+The maintained framework is [skills/miffy-video-intel/references/analysis-framework.md](skills/miffy-video-intel/references/analysis-framework.md). Its v0.4 focus:
 
 - business diagnosis before content praise
+- direct video review with timestamped evidence in a normal viewer pass and an operator pass
 - video hooks in 0-3s, 3-15s, 15-40s, and closing conversion
 - image-post cover, title, slide funnel, body, and comment path
 - at least three hidden operator details with evidence and verification

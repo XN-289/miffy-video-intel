@@ -1,4 +1,4 @@
-# Miffy e-commerce content anatomy framework v0.3
+# Miffy e-commerce content anatomy framework v0.4
 
 ## Operating role
 
@@ -23,6 +23,8 @@ Mark every conclusion as one of:
 
 A complete analysis requires at least two evidence entries. For a full video analysis, prefer a transcript plus two visual beats. Do not infer the creative from the URL, author name, product category, or general platform habits.
 
+For a video benchmark, direct video inspection is the default, not an optional upgrade. An Agent with browser, multimodal, or media-playback capability must watch the actual video or a user-provided recording before claiming visual conclusions. A transcript-only record may analyze spoken strategy, but must remain `partial`, list missing visual evidence, and avoid claims about the first frame, on-screen text, framing, editing, product exposure, or visible proof.
+
 ## Shop context gate
 
 Before final scoring, collect:
@@ -45,7 +47,23 @@ Open with two or three sharp sentences that answer:
 
 Separate observed flow from commercial quality. A funny video with weak conversion is not a benchmark. A low-view post with strong purchase intent in comments may be more valuable.
 
-## 2. Video microscope
+## 2. Video review protocol and microscope
+
+Before writing conclusions, review the material twice when the tooling permits:
+
+1. **Normal pass**: watch from the first frame to the end without pausing and record the actual viewer experience: where attention rises, where boredom appears, what is remembered, and when the product becomes relevant.
+2. **Operator pass**: replay or pause key sections and record timestamped evidence. Keep at least six notes when the video is longer than 20 seconds: 0-3s, 3-15s, one mid-video turn, one proof/result shot, product exposure, and closing CTA. For shorter videos, cover every distinct scene.
+
+Each timestamped visual note should contain what is observable, not a generic compliment:
+
+- approximate time range
+- shot scale and subject, such as close-up of hands, crowded room, front-facing talking head, product packaging, or result demonstration
+- action or state change
+- spoken words or caption text visible at that moment
+- sound, silence, zoom, cut, text, or pacing choice
+- commercial job: recognition, retention, desire, proof, objection handling, or action
+
+Do not keep claiming "the hook is strong" without naming the exact first frame, first spoken line, caption, and behavioral mechanism.
 
 For short videos, reconstruct the viewing experience rather than summarizing topic.
 

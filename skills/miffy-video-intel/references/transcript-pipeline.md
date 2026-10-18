@@ -1,6 +1,6 @@
 # Xiaohongshu video transcript pipeline reference
 
-This reference records a proven, user-owned pipeline for turning one explicitly provided public Xiaohongshu video note into a transcript. The repository does not vendor or reimplement that pipeline. Use it only when the environment already provides the script and the user has authorized this collection path.
+This reference records a proven, user-owned pipeline for turning one explicitly provided public Xiaohongshu video note into a transcript. The repository does not vendor or reimplement that pipeline. Use it only when the environment already provides the script and the user has authorized this collection path. It is an auxiliary transcript source, not the video-analysis workflow itself.
 
 Known source script:
 
@@ -18,7 +18,7 @@ Use `--force` only when the user explicitly asks to rerun a link that the source
 
 ## Purpose and boundary
 
-The business objective is not video downloading. Downloading and audio extraction are short-lived technical steps used to obtain a transcript for internal benchmarking.
+The business objective is not video downloading. Downloading and audio extraction are short-lived technical steps used to obtain a transcript for internal benchmarking. A full Miffy analysis still requires the Agent to inspect the actual video through its allowed browser/player or to receive a user-provided recording/screenshots. Because this source pipeline deletes the media after transcription, its output cannot support visual conclusions by itself.
 
 Allowed:
 

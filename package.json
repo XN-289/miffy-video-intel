@@ -1,6 +1,6 @@
 {
   "name": "miffy-video-intel",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Agent skill and Feishu CLI for e-commerce short-video benchmarking",
   "type": "module",

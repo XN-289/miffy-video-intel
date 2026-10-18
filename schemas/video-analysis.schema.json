@@ -92,7 +92,7 @@
             "required": ["source", "quote", "confidence"],
             "properties": {
               "source": {
-                "enum": ["page", "screenshot", "transcript", "comments", "product_page", "user_input"]
+                "enum": ["page", "video", "screenshot", "transcript", "comments", "product_page", "user_input"]
               },
               "quote": { "type": "string", "minLength": 2 },
               "confidence": { "enum": ["high", "medium", "low"] }
