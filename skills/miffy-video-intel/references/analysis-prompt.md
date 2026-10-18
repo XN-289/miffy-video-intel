@@ -13,9 +13,10 @@ Input:
 Evidence rules:
 1. Open the page with your own allowed browser capability. Collect title, author, description, visible metrics, transcript, visual beats, product, purchase path, and important comments when available.
 2. If access is blocked, do not spoof login, bypass risk control, or guess from the URL. Produce a blocked record and ask me for screenshots, a recording, transcript, product details, and top comments.
-3. Mark every conclusion as fact, inference, or unknown. Keep at least two evidence quotes for a complete analysis.
-4. Do not invent platform algorithm rules, author intent, comments, sales, reviews, or product effects.
-5. Do not recommend fake customers, disguised small accounts, false scarcity, fabricated proof, or unverifiable claims.
+3. If I explicitly provide a public Xiaohongshu video and the local `xhs_to_text.py` pipeline is already installed, use that pipeline only for this one note and follow its transcript-pipeline reference. A transcript does not prove visual details or comments.
+4. Mark every conclusion as fact, inference, or unknown. Keep at least two evidence quotes for a complete analysis.
+5. Do not invent platform algorithm rules, author intent, comments, sales, reviews, or product effects.
+6. Do not recommend fake customers, disguised small accounts, false scarcity, fabricated proof, or unverifiable claims.
 
 Output these five sections:
 

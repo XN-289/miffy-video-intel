@@ -25,7 +25,7 @@ Use this skill when the user provides a short-video link and wants the team to l
 ## Workflow
 
 1. Resolve the repository root. Use the current directory if it contains `package.json`; otherwise use `MIFFY_VIDEO_INTEL_HOME`.
-2. Collect visible facts with the Agent browser. Capture title, author, description, metrics, comments, product details, transcript, and visual beats when available.
+2. Collect visible facts with the Agent browser. Capture title, author, description, metrics, comments, product details, transcript, and visual beats when available. For a Xiaohongshu video where the user's existing transcript pipeline is available, follow `references/transcript-pipeline.md`.
 3. Analyze according to `references/analysis-framework.md`. When another Agent needs a compact reusable prompt, use `references/analysis-prompt.md`.
 4. Write one JSON file under `analyses/`:
    - complete record: `analyses/<platform>-<video-id>.json`

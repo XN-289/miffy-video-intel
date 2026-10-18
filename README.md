@@ -133,6 +133,12 @@ The maintained framework is [skills/miffy-video-intel/references/analysis-framew
 
 [references/analysis-prompt.md](skills/miffy-video-intel/references/analysis-prompt.md) is the compact version for external Agents. Keep prompt improvements in these files rather than in a private chat.
 
+## Existing transcript pipeline
+
+If the user's environment already provides `~/workspace/notes-hub/xhs_to_text.py`, Agents can use it only for one explicitly supplied public Xiaohongshu video note. [references/transcript-pipeline.md](skills/miffy-video-intel/references/transcript-pipeline.md) records the proven six-step shape, local transcription pitfalls, cleanup rule, JSON mapping, and failure decision table.
+
+The pipeline produces evidence, not a final benchmark. A transcript alone does not prove the first frame, on-screen text, product exposure, or comments. Missing visual and comment evidence must remain explicit in the record.
+
 ## Feishu configuration
 
 Use one Feishu self-built app with Bitable read/write permission. Add group messaging only if notifications are needed. The app must be authorized for the target Bitable.
